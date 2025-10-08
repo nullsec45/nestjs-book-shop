@@ -10,8 +10,8 @@ CREATE TABLE "users" (
     "password" VARCHAR(255) NOT NULL,
     "role" "Role" NOT NULL DEFAULT 'CUSTOMER',
     "is_active" BOOLEAN NOT NULL DEFAULT true,
-    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMPTZ(6) NOT NULL,
+    "created_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ NULL DEFAULT NULL,
 
     CONSTRAINT "users_pkey" PRIMARY KEY ("id")
 );
