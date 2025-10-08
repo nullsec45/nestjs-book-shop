@@ -65,7 +65,7 @@ export class AuthService {
                 data:registerRequest
             });
             
-            return responseValue(false, HttpStatus.CREATED, 'Successfully register');
+            return responseValue(true, HttpStatus.CREATED, 'Successfully register');
     }
 
     async login(request:LoginUserRequest):Promise<ResponseData>{
@@ -98,11 +98,26 @@ export class AuthService {
             let payload={name:user.name}
             let accessToken=this.jwtService.sign(payload, {
                 secret: process.env.JWT_SECRET,
-                expiresIn: "60s"
+                expiresIn: "1h"
+            });
+
+            const expiry = new Date(Date.now() + 60 * 60 * 1000);
+            const fmt = new Intl.DateTimeFormat('sv-SE', {
+                timeZone: 'Asia/Jakarta',
+                year: 'numeric', month: '2-digit', day: '2-digit',
+                hour: '2-digit', minute: '2-digit', second: '2-digit',
+                hour12: false,
             });
         
-            return responseValueWithData(true,HttpStatus.OK, 'Success Login.', {
-                accessToken:accessToken
+            const jakarta = fmt.format(expiry).replace(' ', 'T');
+            const tokenExpiredAt = `${jakarta}+07:00`;
+
+            // const tokenExpiredAt=new Date(Date.now() + 60 * 60 * 1000).toISOString();
+            const tokenExpiredAtEpoch = Math.floor(Date.now() / 1000) + 3600;
+
+            return responseValueWithData(true,HttpStatus.OK, 'Successfully Login.', {
+                accessToken:accessToken,
+                tokenExpiredAt:tokenExpiredAt,
             });
         }catch(error){
              return responseValue(false, HttpStatus.CONFLICT, error.message);
@@ -126,6 +141,7 @@ export class AuthService {
 
     // async get(user:User):Promise<UserResponse>{
     //     return {
+    //         name:user.name,
     //         email:user.email,
     //         role:user.role
     //     }
