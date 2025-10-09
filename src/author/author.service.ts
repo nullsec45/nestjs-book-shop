@@ -10,6 +10,7 @@ import { isUUID } from '@/utils/is-uuid';
 import { WebResponse } from "@/model/web.model";
 import {responseValue, responseValueWithData, responseValueWithPaginate} from '@/utils/response';
 import { ResponseData } from '@/types/response';
+import { slugWithId } from "@/utils/generate-slug";
 
 @Injectable()
 export class AuthorService {
@@ -23,6 +24,7 @@ export class AuthorService {
 
     private authorResponse(author:Author):AuthorResponse{
         return {
+            id:author.id,
             slug:author.slug,
             name:author.name,
             bio:author.bio,
@@ -30,22 +32,20 @@ export class AuthorService {
     }
 
     async checkAuthorMustExists(param:string):Promise<Author>{  
-        const where = isUUID(param) ? {id:param} : {slug:param};
+        const where = isUUID(param) ? {id:param,deleted_at:null} : {slug:param, deleted_at:null};
 
         const author=await this.prismaService.author.findFirst({
             where: where as any,
         });
 
-        if(!author){
-            throw new HttpException('Author is not found',404);
-        }
 
         return author;
     }
 
     async create(
         request:CreateAuthorRequest
-    ):Promise<AuthorResponse>{
+    ):Promise<ResponseData>{
+        request.slug=slugWithId(request.name, { uniqueStrategy: "time" });
         const createRequest:CreateAuthorRequest=this.validationService.validate(
             AuthorValidation.CREATE,
             request
@@ -57,7 +57,9 @@ export class AuthorService {
             }
         });
 
-        return this.authorResponse(author);
+        const authorData=this.authorResponse(author);
+
+        return responseValueWithData(true, HttpStatus.CREATED, 'Successfully Get Data', authorData);
     }
 
 
@@ -66,7 +68,6 @@ export class AuthorService {
 
         const filters: any[] = [];
 
-        // Cari di first_name / last_name
         if (searchRequest.name) {
             filters.push({
             OR: [
@@ -76,7 +77,6 @@ export class AuthorService {
             });
         }
 
-        // Jika tabel Author juga punya kolom 'name', aktifkan filter ini (biarkan jika diperlukan)
         if (searchRequest.name) {
             filters.push({
             name: { contains: searchRequest.name },
@@ -89,10 +89,12 @@ export class AuthorService {
 
         const [authors, total] = await Promise.all([
             this.prismaService.author.findMany({
-            where: { AND: filters },
+            where: { 
+                AND: filters,
+                deleted_at: null
+            },
             take: perPage,
             skip,
-            // optional: tambahkan pengurutan kalau mau hasil stabil
             // orderBy: { created_at: "desc" },
             }),
             this.prismaService.author.count({
@@ -114,39 +116,66 @@ export class AuthorService {
     }
 
     async get(param:string):Promise<ResponseData>{
-        const authorData=await this.checkAuthorMustExists(param);
+        const author=await this.checkAuthorMustExists(param);
 
-        // return this.authorResponse(authorData);
-        return responseValueWithData(true, HttpStatus.CREATED, 'Successfully Get Data', authorData);
+        if (!author) {
+            return responseValue(false, HttpStatus.NOT_FOUND, 'Author Not Found');
+        }
 
+        const authorData=this.authorResponse(author);
+        return responseValueWithData(true, HttpStatus.OK, 'Successfully Get Data', authorData);
     }
 
     async update(
         request:UpdateAuthorRequest
-    ):Promise<AuthorResponse>{
+    ):Promise<ResponseData>{
+        let author=await this.checkAuthorMustExists(request.id);
+
+        if (!author) {
+            return responseValue(false, HttpStatus.NOT_FOUND, 'Author Not Found');
+        }
+
+        let slug=author.slug;
+        
+        if (slug !== request.slug) {
+            slug=slugWithId(request.name, { uniqueStrategy: "time" });
+            request.slug=slug;
+        }
+
         const updateRequest=this.validationService.validate(AuthorValidation.UPDATE,request);
 
-        let author=await this.checkAuthorMustExists(updateRequest.id);
 
         author=await this.prismaService.author.update({
             where:{
                 id:author.id,
             },
-            data:updateRequest
+            data:{
+                ...updateRequest,
+                updated_at:new Date()
+            }
         })
 
-        return this.authorResponse(author);
+        const authorData=this.authorResponse(author);
+
+        return responseValueWithData(true, HttpStatus.OK, 'Successfully Updated Data', authorData);
     }
 
-    async remove(authorId:string):Promise<AuthorResponse>{
-        await this.checkAuthorMustExists(authorId);
+    async remove(authorId:string):Promise<ResponseData>{
+        const checkAuthor=await this.checkAuthorMustExists(authorId);
 
-        const author=await this.prismaService.author.delete({
+        if (!checkAuthor) {
+            return responseValue(false, HttpStatus.NOT_FOUND, 'Author Not Found');
+        }
+
+        const author=await this.prismaService.author.update({
             where:{
                 id:authorId,
+            },
+            data:{
+                deleted_at:new Date()
             }
         });
 
-        return this.authorResponse(author);
+        return responseValue(true, HttpStatus.OK, 'Successfully Deleted Data');
     }
 }

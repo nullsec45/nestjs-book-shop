@@ -12,7 +12,7 @@ export class AuthorValidation {
         id:z.string(),
         name:z.string().min(5).max(200),
         slug:z.string().min(5).max(220),
-        bio: z.string().min(20).max(350).optional(),
+        bio: z.string().min(10).max(350).optional(),
     });
 
     static readonly SEARCH=z.object({

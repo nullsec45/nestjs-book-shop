@@ -5,7 +5,6 @@ import { WebResponse } from "@/model/web.model";
 import { AuthenticatedGuard } from '@/auth/authenticated.guard';
 import { JwtAuthGuard } from '@/auth/jwt-auth.guard';
 import { Response } from 'express'
-import { slugWithId } from "@/utils/generate-slug";
 
 
 @UseGuards(AuthenticatedGuard)
@@ -20,52 +19,45 @@ export class AuthorController {
     async create(
         @Body() request:CreateAuthorRequest
     ){
-        request.slug=slugWithId(request.name, { uniqueStrategy: "time" })
         const result= await this.authorService.create(request);
         return {
             data:result
         }
     }
 
-    @Get('/:authorId')
+    @Get('/:param')
     @HttpCode(200)
     async get(
         @Res() response:Response,
-        @Param('authorId',ParseIntPipe) authorId:string
+        @Param('param') param:string
     ){
-        const result=await this.authorService.get(authorId);
-        // return {
-        //     data:result
-        // }
+        const result=await this.authorService.get(param);
 
-        //   const result=await this.authService.register(request);
-
-      return response.status(result.statusCode).json(result);
+        return response.status(result.statusCode).json(result);
     }
 
     @Put('/:authorId')
     @HttpCode(200)
     async update(
-        @Param('authorId',ParseIntPipe) authorId:string,
+        @Res() response:Response,
+        @Param('authorId') authorId:string,
         @Body() request:UpdateAuthorRequest
-    ):Promise<WebResponse<AuthorResponse>>{
+    ){
         request.id=authorId;
         const result=await this.authorService.update(request);
-        return {
-            data:result
-        }
+     
+        return response.status(result.statusCode).json(result);
     }
 
     @Delete('/:authorId')
     @HttpCode(200)
     async remove(
-        @Param('authorId',ParseIntPipe) authorId:string
-    ):Promise<WebResponse<boolean>>{
-        await this.authorService.remove(authorId);
+        @Res() response:Response,
+        @Param('authorId') authorId:string
+    ){
+        const result=await this.authorService.remove(authorId);
         
-        return {
-            data:true
-        }
+        return response.status(result.statusCode).json(result);
     }
 
     @Get()

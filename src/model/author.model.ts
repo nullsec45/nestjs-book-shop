@@ -5,6 +5,7 @@ export class CreateAuthorRequest {
 }
 
 export class AuthorResponse {
+  id:string;
   slug:string;
   name:string;
   bio?: string;
