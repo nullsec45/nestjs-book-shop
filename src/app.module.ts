@@ -9,6 +9,9 @@ import { AuthService } from './auth/auth.service';
 import { AuthorController } from './author/author.controller';
 import { AuthorService } from './author/author.service';
 import { AuthorModule } from './author/author.module';
+import { CategoryController } from './category/category.controller';
+import { CategoryService } from './category/category.service';
+import { CategoryModule } from './category/category.module';
 
 
 @Module({
@@ -18,9 +21,10 @@ import { AuthorModule } from './author/author.module';
     ConfigModule.forRoot({
       isGlobal: true, // Agar ConfigService bisa diakses di seluruh aplikasi
     }),
-    AuthorModule, 
+    AuthorModule,
+    CategoryModule, 
   ],
-  controllers: [AppController, AuthorController],
-  providers: [AppService, AuthService,  JwtService, AuthorService],
+  controllers: [AppController, AuthorController, CategoryController],
+  providers: [AppService, AuthService,  JwtService, AuthorService, CategoryService],
 })
 export class AppModule {}
