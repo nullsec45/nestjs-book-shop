@@ -17,8 +17,6 @@ export class AuthorValidation {
 
     static readonly SEARCH=z.object({
         name:z.string().min(2).optional(),
-        email:z.string().min(2).optional(),
-        phone:z.string().min(2).optional(),
         page:z.number().min(1).positive(),
         size:z.number().min(1).max(100).positive()
     });
