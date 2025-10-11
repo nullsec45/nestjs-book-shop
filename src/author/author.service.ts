@@ -1,4 +1,4 @@
-import { HttpException, Injectable, Inject,HttpStatus } from '@nestjs/common';
+import { Injectable, Inject,HttpStatus } from '@nestjs/common';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { PrismaService } from '../common/prisma.service';
 import { ValidationService } from '../common/validation.service';
@@ -7,14 +7,13 @@ import { AuthorResponse, CreateAuthorRequest, SearchAuthorRequest, UpdateAuthorR
 import { Author } from "@prisma/client";
 import { AuthorValidation } from './author.validation';
 import { isUUID } from '@/utils/is-uuid';
-import { WebResponse } from "@/model/web.model";
 import {responseValue, responseValueWithData, responseValueWithPaginate} from '@/utils/response';
 import { ResponseData } from '@/types/response';
 import { slugWithId } from "@/utils/generate-slug";
 
 @Injectable()
 export class AuthorService {
-     constructor(
+    constructor(
         private validationService:ValidationService,
         @Inject(WINSTON_MODULE_PROVIDER) private logger:Logger,
         private prismaService:PrismaService,
@@ -59,7 +58,7 @@ export class AuthorService {
 
         const authorData=this.authorResponse(author);
 
-        return responseValueWithData(true, HttpStatus.CREATED, 'Successfully Get Data', authorData);
+        return responseValueWithData(true, HttpStatus.CREATED, 'Successfully Created Data', authorData);
     }
 
 
