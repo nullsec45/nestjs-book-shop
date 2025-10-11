@@ -1,7 +1,6 @@
 import { Controller,Post,HttpCode,Body, ParseIntPipe,Get,Param, Put, Delete, Query, UseGuards, Res} from "@nestjs/common";
 import { AuthorService } from "@/author/author.service";
 import { AuthorResponse, CreateAuthorRequest, SearchAuthorRequest, UpdateAuthorRequest } from "@/model/author.model";
-import { WebResponse } from "@/model/web.model";
 import { AuthenticatedGuard } from '@/auth/authenticated.guard';
 import { JwtAuthGuard } from '@/auth/jwt-auth.guard';
 import { Response } from 'express'
@@ -9,7 +8,7 @@ import { Response } from 'express'
 
 @UseGuards(AuthenticatedGuard)
 @UseGuards(JwtAuthGuard)
-@Controller('author')
+@Controller('authors')
 export class AuthorController {
     constructor(
         private authorService:AuthorService
