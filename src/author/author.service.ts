@@ -1,11 +1,11 @@
 import { Injectable, Inject,HttpStatus } from '@nestjs/common';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
-import { PrismaService } from '../common/prisma.service';
-import { ValidationService } from '../common/validation.service';
+import { PrismaService } from '@/common/prisma.service';
+import { ValidationService } from '@/common/validation.service';
 import {Logger} from 'winston';
 import { AuthorResponse, CreateAuthorRequest, SearchAuthorRequest, UpdateAuthorRequest } from '@/model/author.model';
-import { Author } from "@prisma/client";
-import { AuthorValidation } from './author.validation';
+import { Author,Prisma } from "@prisma/client";
+import { AuthorValidation } from '@/author/author.validation';
 import { isUUID } from '@/utils/is-uuid';
 import {responseValue, responseValueWithData, responseValueWithPaginate} from '@/utils/response';
 import { ResponseData } from '@/types/response';
@@ -41,6 +41,14 @@ export class AuthorService {
         return author;
     }
 
+    async isUnique(where: Prisma.AuthorWhereInput): Promise<boolean> {
+        const found = await this.prismaService.author.findFirst({
+            where,
+            select: { id: true },
+        });
+        return !Boolean(found);
+    }
+
     async create(
         request:CreateAuthorRequest
     ):Promise<ResponseData>{
@@ -49,6 +57,10 @@ export class AuthorService {
             AuthorValidation.CREATE,
             request
         );
+
+        if (!(await this.isUnique({ name: request.name }))) {
+            return responseValue(false, HttpStatus.CONFLICT, 'Author Already in Database');
+        }
 
         const author=await this.prismaService.author.create({
             data:{
