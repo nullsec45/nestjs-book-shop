@@ -15,12 +15,11 @@ export class BookController {
 
     @Post()
     async create(
+        @Res() response:Response,
         @Body() request:CreateBookRequest
     ){
         const result= await this.bookService.create(request);
-        return {
-            data:result
-        }
+        return response.status(result.statusCode).json(result);
     }
 
     @Get('/:param')

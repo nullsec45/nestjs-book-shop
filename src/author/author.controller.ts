@@ -16,12 +16,12 @@ export class AuthorController {
 
     @Post()
     async create(
+        @Res() response:Response,
         @Body() request:CreateAuthorRequest
     ){
         const result= await this.authorService.create(request);
-        return {
-            data:result
-        }
+       
+        return response.status(result.statusCode).json(result);
     }
 
     @Get('/:param')
