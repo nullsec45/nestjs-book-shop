@@ -44,7 +44,7 @@ export class AuthorService {
     async create(
         request:CreateAuthorRequest
     ):Promise<ResponseData>{
-        request.slug=slugWithId(request.name, { uniqueStrategy: "time" });
+        request.slug=slugWithId(request.name || "", { uniqueStrategy: "time" });
         const createRequest:CreateAuthorRequest=this.validationService.validate(
             AuthorValidation.CREATE,
             request
@@ -60,7 +60,6 @@ export class AuthorService {
 
         return responseValueWithData(true, HttpStatus.CREATED, 'Successfully Created Data', authorData);
     }
-
 
     async search(request: SearchAuthorRequest): Promise<ResponseData> {
         const searchRequest: SearchAuthorRequest = this.validationService.validate(AuthorValidation.SEARCH, request);
@@ -137,7 +136,7 @@ export class AuthorService {
         let slug=author.slug;
         
         if (slug !== request.slug) {
-            slug=slugWithId(request.name, { uniqueStrategy: "time" });
+            slug=slugWithId(request.name || "", { uniqueStrategy: "time" });
             request.slug=slug;
         }
 

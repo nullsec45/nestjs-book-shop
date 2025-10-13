@@ -44,7 +44,7 @@ export class CategoryService {
         async create(
             request:CreateCategoryRequest
         ):Promise<ResponseData>{
-            request.slug=slugWithId(request.name, { uniqueStrategy: "time" });
+            request.slug=slugWithId(request.name || "", { uniqueStrategy: "time" });
             const createRequest:CreateCategoryRequest=this.validationService.validate(
                 CategoryValidation.CREATE,
                 request
@@ -137,7 +137,7 @@ export class CategoryService {
             let slug=category.slug;
             
             if (slug !== request.slug) {
-                slug=slugWithId(request.name, { uniqueStrategy: "time" });
+                slug=slugWithId(request.name || "", { uniqueStrategy: "time" });
                 request.slug=slug;
             }
     
