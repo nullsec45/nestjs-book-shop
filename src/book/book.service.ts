@@ -8,7 +8,6 @@ import { Book, Prisma } from "@prisma/client";
 import { BookValidation } from '@/book/book.validation';
 import { isUUID } from '@/utils/is-uuid';
 import {responseValue, responseValueWithData, responseValueWithPaginate, } from '@/utils/response';
-import { formateDate} from '@/utils/date';
 import { ResponseData } from '@/types/response';
 import { slugWithId } from "@/utils/generate-slug";
 
@@ -45,7 +44,6 @@ export class BookService {
             where: where as any,
         });
 
-
         return book;
     }
 
@@ -67,7 +65,11 @@ export class BookService {
             request
         );
        
-        if (!(await this.isUnique({ title: request.title }))) {
+        if (!(await this.isUnique({ AND:[{title: request.title},{deleted_at:null}]}  ))) {
+            return responseValue(false, HttpStatus.CONFLICT, 'Book Already in Database');
+        }
+
+        if (!(await this.isUnique({ AND:[{isbn: request.isbn},{deleted_at:null}]}  ))) {
             return responseValue(false, HttpStatus.CONFLICT, 'Book Already in Database');
         }
 
@@ -148,6 +150,7 @@ export class BookService {
     async update(
         request:UpdateBookRequest
     ):Promise<ResponseData>{
+        console.log(request.id)
         let book=await this.checkBookMustExists(request.id);
 
         if (!book) {
