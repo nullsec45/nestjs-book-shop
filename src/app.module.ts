@@ -15,6 +15,9 @@ import { CategoryModule } from './category/category.module';
 import { BookController } from './book/book.controller';
 import { BookService } from './book/book.service';
 import { BookModule } from './book/book.module';
+import { BookAuthorController } from './book-author/book-author.controller';
+import { BookAuthorService } from './book-author/book-author.service';
+import { BookAuthorModule } from './book-author/book-author.module';
 
 
 @Module({
@@ -26,9 +29,10 @@ import { BookModule } from './book/book.module';
     }),
     AuthorModule,
     CategoryModule,
-    BookModule, 
+    BookModule,
+    BookAuthorModule, 
   ],
-  controllers: [AppController, AuthorController, CategoryController, BookController],
-  providers: [AppService, AuthService,  JwtService, AuthorService, CategoryService, BookService],
+  controllers: [AppController, AuthorController, CategoryController, BookController, BookAuthorController],
+  providers: [AppService, AuthService,  JwtService, AuthorService, CategoryService, BookService, BookAuthorService],
 })
 export class AppModule {}
