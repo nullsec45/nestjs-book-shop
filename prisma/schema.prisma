@@ -63,8 +63,8 @@ model Category {
 
 model Book {
   id           String    @id @db.Uuid @default(dbgenerated("gen_random_uuid()"))
-  slug         String    @db.VarChar(220) @unique
-  isbn         String?   @unique
+  slug         String    @db.VarChar(220)
+  isbn         String?  
   title        String    @db.VarChar(200)
   description  String?   @db.Text
   price        Decimal   @db.Decimal(12, 2)
