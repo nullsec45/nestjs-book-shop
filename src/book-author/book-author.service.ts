@@ -93,14 +93,25 @@ export class BookAuthorService {
     async update(
         request:UpdateBookAuthorRequest
     ):Promise<ResponseData>{
-        console.log(request.id)
+        const updateRequest=this.validationService.validate(BookAuthorValidation.UPDATE,request);
+        
         let bookAuthor=await this.checkBookAuthorMustExists(request.id);
 
         if (!bookAuthor) {
             return responseValue(false, HttpStatus.NOT_FOUND, 'Book Author Not Found');
         }
 
-        const updateRequest=this.validationService.validate(BookAuthorValidation.UPDATE,request);
+        const book=await this.bookService.checkBookMustExists(updateRequest.book_id);
+
+        if (!book) {
+            return responseValue(false, HttpStatus.NOT_FOUND, 'Book Not Found');
+        }
+
+        const author=await this.authorService.checkAuthorMustExists(updateRequest.author_id);
+
+        if (!author) {
+            return responseValue(false, HttpStatus.NOT_FOUND, 'Author Not Found');
+        }
 
         bookAuthor=await this.prismaService.bookAuthor.update({
             where:{
