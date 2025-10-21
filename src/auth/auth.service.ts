@@ -6,12 +6,10 @@ import { LoginUserRequest, RegisterUserRequest, UpdateUserRequest, UserResponse 
 import {Logger} from 'winston';
 import { UserValidation } from './user.validation';
 import * as bcrypt from 'bcrypt';
-import {v4 as uuid} from 'uuid';
 import { User } from '@prisma/client';
 import { JwtService } from '@nestjs/jwt';
 import { ResponseData } from '@/types/response';
 import {responseValue, responseValueWithData} from '@/utils/response';
-import { access } from 'fs';
 
 @Injectable()
 export class AuthService {
@@ -23,7 +21,18 @@ export class AuthService {
     ){
 
     }
-    
+
+    async checkUserMustExists(id:string):Promise<User>{  
+        const user=await this.prismaService.user.findFirst({
+            where: {
+                id
+            },
+        });
+
+
+        return user;
+    }
+
     async validateUser(email: string, password: string): Promise<any> {
         const user = await this.prismaService.user.findUnique({where:{email}});
         if (!user) return null;
