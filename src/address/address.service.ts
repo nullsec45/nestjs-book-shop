@@ -1,0 +1,112 @@
+import { HttpException, Inject, Injectable, HttpStatus } from '@nestjs/common';
+import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
+import { PrismaService } from '@/common/prisma.service';
+import { ValidationService } from '@/common/validation.service';
+import { AuthService } from '@/auth/auth.service';
+import { AddressResponse, CreateAddressRequest, UpdateAddressRequest } from '@/model/address.model';
+import {Logger} from 'winston';
+import { AddressValidation } from '@/address/address.validation';
+import { Prisma, Address } from '@prisma/client';
+import { ResponseData } from '@/types/response';
+import {responseValue, responseValueWithData} from '@/utils/response';
+
+@Injectable()
+export class AddressService {
+    constructor(
+        private readonly validationService:ValidationService,
+        @Inject(WINSTON_MODULE_PROVIDER) private logger:Logger,
+        private readonly prismaService:PrismaService,
+        private readonly authService:AuthService,
+    ){}
+
+    private addressResponse(address:Address):AddressResponse{
+        return {
+            id:address.id,
+            user_id:address.user_id,
+            label:address.label,
+            recipient_name:address.recipient_name,
+            phone:address.phone,
+            line:address.line,
+            city:address.city,
+            province:address.province,
+            is_default:address.is_default
+        }
+    }
+
+    async checkAddressMustExists(id:string):Promise<Address>{  
+        const address=await this.prismaService.address.findUnique({
+            where: {
+                id,
+            },
+        });
+
+        return address;
+    }
+
+    async create(
+            request:CreateAddressRequest
+        ):Promise<ResponseData>{
+            const createRequest:CreateAddressRequest=this.validationService.validate(
+                AddressValidation.CREATE,
+                request
+            );
+    
+            const user=await this.authService.checkUserMustExists(createRequest.user_id);
+
+            if (!user) {
+                return responseValue(false, HttpStatus.NOT_FOUND, 'User Not Found');
+            }
+    
+            const address=await this.prismaService.address.create({
+                data:{
+                    ...createRequest,
+                }
+            });
+    
+            const addressData=this.addressResponse(address);
+    
+            return responseValueWithData(true, HttpStatus.CREATED, 'Successfully Created Data', addressData);
+    }
+
+    async update(
+        request:UpdateAddressRequest
+    ):Promise<ResponseData>{
+        let checkAddress=await this.checkAddressMustExists(request.id);
+
+        if (!checkAddress) {
+            return responseValue(false, HttpStatus.NOT_FOUND, 'Address Not Found');
+        }
+
+        const updateRequest=this.validationService.validate(AddressValidation.UPDATE,request);
+
+        const address=await this.prismaService.address.update({
+            where:{
+                id:checkAddress.id,
+            },
+            data:{
+                ...updateRequest,
+                updated_at:new Date()
+            }
+        })
+
+        const addressData=this.addressResponse(address);
+
+        return responseValueWithData(true, HttpStatus.OK, 'Successfully Updated Data', addressData);
+    }
+
+     async remove(addressId:string):Promise<ResponseData>{
+        const checkAddress=await this.checkAddressMustExists(addressId);
+
+        if (!checkAddress) {
+            return responseValue(false, HttpStatus.NOT_FOUND, 'Address Not Found');
+        }
+
+       await this.prismaService.address.delete({
+            where:{
+                id:addressId,
+            },
+        });
+
+        return responseValue(true, HttpStatus.OK, 'Successfully Deleted Data');
+    }
+}
