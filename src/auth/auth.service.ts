@@ -4,7 +4,7 @@ import { PrismaService } from '../common/prisma.service';
 import { ValidationService } from '../common/validation.service';
 import { LoginUserRequest, RegisterUserRequest, UpdateUserRequest, UserResponse } from '../model/user.model';
 import {Logger} from 'winston';
-import { UserValidation } from './user.validation';
+import { UserValidation } from './auth.validation';
 import * as bcrypt from 'bcrypt';
 import { User } from '@prisma/client';
 import { JwtService } from '@nestjs/jwt';
@@ -46,35 +46,35 @@ export class AuthService {
     }
 
     async register(request:RegisterUserRequest):Promise<ResponseData>{
-            const registerRequest=this.validationService.validate(UserValidation.REGISTER, request);
+        const registerRequest=this.validationService.validate(UserValidation.REGISTER, request);
 
-            const totalUserWithSameEmail=await this.prismaService.user.count({
-                where:{
-                    email:registerRequest.email
-                }
-            });
-
-            if(totalUserWithSameEmail != 0){
-                return responseValue(false, HttpStatus.CONFLICT, 'Account  already exists');
+        const totalUserWithSameEmail=await this.prismaService.user.count({
+            where:{
+                email:registerRequest.email
             }
+        });
 
-            const totalUserWithSameUsername=await this.prismaService.user.count({
-                where:{
-                    username:registerRequest.username
-                }
-            });
+        if(totalUserWithSameEmail != 0){
+            return responseValue(false, HttpStatus.CONFLICT, 'Account  already exists');
+        }
 
-            if(totalUserWithSameUsername != 0){
-                return responseValue(false, HttpStatus.CONFLICT, 'Account  already exists');
+        const totalUserWithSameUsername=await this.prismaService.user.count({
+            where:{
+                username:registerRequest.username
             }
+        });
 
-            registerRequest.password = await bcrypt.hash(registerRequest.password,10);
+        if(totalUserWithSameUsername != 0){
+            return responseValue(false, HttpStatus.CONFLICT, 'Account  already exists');
+        }
 
-            const user=await this.prismaService.user.create({
-                data:registerRequest
-            });
-            
-            return responseValue(true, HttpStatus.CREATED, 'Successfully register');
+        registerRequest.password = await bcrypt.hash(registerRequest.password,10);
+
+        const user=await this.prismaService.user.create({
+            data:registerRequest
+        });
+        
+        return responseValue(true, HttpStatus.CREATED, 'Successfully register');
     }
 
     async login(request:LoginUserRequest):Promise<ResponseData>{
@@ -85,6 +85,11 @@ export class AuthService {
             );
 
             let user=await this.prismaService.user.findUnique({
+                select:{
+                    id:true,
+                    name:true,
+                    password:true,
+                },
                 where:{
                     email:loginRequest.email
                 }
@@ -100,11 +105,10 @@ export class AuthService {
             );
 
             if(!isPasswordValid){
-                // throw new HttpException('Username or password is invalid',401);
                 return responseValue(false, HttpStatus.UNAUTHORIZED, 'Username or password is invalid');
             }
 
-            let payload={name:user.name}
+            let payload={id:user.id}
             let accessToken=this.jwtService.sign(payload, {
                 secret: process.env.JWT_SECRET,
                 expiresIn: "1h"
@@ -147,55 +151,4 @@ export class AuthService {
             expiresIn: '60s',
         });
     }
-
-    // async get(user:User):Promise<UserResponse>{
-    //     return {
-    //         name:user.name,
-    //         email:user.email,
-    //         role:user.role
-    //     }
-    // }
-
-    async update(user:User, request:UpdateUserRequest):Promise<UserResponse>{
-        const updateRequest:UpdateUserRequest=this.validationService.validate(
-            UserValidation.UPDATE,
-            request
-        );
-
-        if(updateRequest.email){
-            user.email=updateRequest.email;
-        }
-
-        if(updateRequest.password){
-            user.password=await bcrypt.hash(updateRequest.password,10);
-        }
-
-        const result=await this.prismaService.user.update({
-            where:{
-                username:user.username
-            },
-            data:user
-        });
-
-        return {
-            email:result.email,
-            role:result.role
-        }
-    }
-
-    // async logout(user:User):Promise<UserResponse>{
-    //     const result=await this.prismaService.user.update({
-    //         where:{
-    //             role:user.role
-    //         },
-    //         data:{
-    //             token:null
-    //         }
-    //     })
-
-    //     return {
-    //         email:result.email,
-    //         role:result.role,
-    //     }
-    // }
 }
