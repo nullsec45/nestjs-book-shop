@@ -25,9 +25,9 @@ model User {
   email      String    @unique @db.VarChar(150)
   password   String    @map("password") @db.VarChar(255)
   role       Role      @default(CUSTOMER)
-  isActive   Boolean   @default(true) @map("is_active")
-  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  is_active   Boolean  @default(true) 
+  created_at DateTime  @default(now()) @db.Timestamptz
+  updated_at DateTime  @updatedAt @db.Timestamptz
   deleted_at DateTime? @db.Timestamptz
 
   addresses Address[]
