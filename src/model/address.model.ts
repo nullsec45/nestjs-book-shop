@@ -1,5 +1,4 @@
 export class CreateAddressRequest {
-    user_id:string;
     label:string;
     recipient_name:string;
     phone: string;
@@ -11,7 +10,6 @@ export class CreateAddressRequest {
 
 export class AddressResponse {
     id:string;
-    user_id:string;
     label:string;
     recipient_name:string;
     phone: string;
@@ -23,7 +21,6 @@ export class AddressResponse {
 
 export class UpdateAddressRequest {
     id:string;
-    user_id:string;
     label:string;
     recipient_name:string;
     phone: string;

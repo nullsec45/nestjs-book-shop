@@ -22,7 +22,6 @@ export class AddressService {
     private addressResponse(address:Address):AddressResponse{
         return {
             id:address.id,
-            user_id:address.user_id,
             label:address.label,
             recipient_name:address.recipient_name,
             phone:address.phone,
@@ -33,10 +32,17 @@ export class AddressService {
         }
     }
 
-    async checkAddressMustExists(id:string):Promise<Address>{  
-        const address=await this.prismaService.address.findUnique({
+    async checkAddressMustExists(id:string, userId:string):Promise<Address>{  
+        const address=await this.prismaService.address.findFirst({
             where: {
-                id,
+                AND:[
+                    {
+                        id,
+                    },
+                    {
+                        user_id:userId
+                    }
+                ]
             },
         });
 
@@ -44,37 +50,46 @@ export class AddressService {
     }
 
     async create(
-            request:CreateAddressRequest
-        ):Promise<ResponseData>{
-            const createRequest:CreateAddressRequest=this.validationService.validate(
-                AddressValidation.CREATE,
-                request
-            );
-    
-            const user=await this.authService.checkUserMustExists(createRequest.user_id);
+        request:CreateAddressRequest,
+        userId:string
+    ):Promise<ResponseData>{
+        const createRequest:CreateAddressRequest=this.validationService.validate(
+            AddressValidation.CREATE,
+            request
+        );
 
-            if (!user) {
-                return responseValue(false, HttpStatus.NOT_FOUND, 'User Not Found');
+        const user=await this.authService.checkUserMustExists(userId);
+
+        if (!user) {
+            return responseValue(false, HttpStatus.NOT_FOUND, 'User Not Found');
+        }
+
+        const address=await this.prismaService.address.create({
+            data:{
+                user_id:userId,
+                ...createRequest,
             }
-    
-            const address=await this.prismaService.address.create({
-                data:{
-                    ...createRequest,
-                }
-            });
-    
-            const addressData=this.addressResponse(address);
-    
-            return responseValueWithData(true, HttpStatus.CREATED, 'Successfully Created Data', addressData);
+        });
+
+        const addressData=this.addressResponse(address);
+
+        return responseValueWithData(true, HttpStatus.CREATED, 'Successfully Created Data', addressData);
     }
 
     async update(
-        request:UpdateAddressRequest
+        request:UpdateAddressRequest,
+        userId:string
     ):Promise<ResponseData>{
-        let checkAddress=await this.checkAddressMustExists(request.id);
+        let checkAddress=await this.checkAddressMustExists(request.id,userId);
 
         if (!checkAddress) {
             return responseValue(false, HttpStatus.NOT_FOUND, 'Address Not Found');
+        }
+
+        const user=await this.authService.checkUserMustExists(userId);
+
+        if (!user) {
+            return responseValue(false, HttpStatus.NOT_FOUND, 'User Not Found');
         }
 
         const updateRequest=this.validationService.validate(AddressValidation.UPDATE,request);
@@ -94,8 +109,11 @@ export class AddressService {
         return responseValueWithData(true, HttpStatus.OK, 'Successfully Updated Data', addressData);
     }
 
-     async remove(addressId:string):Promise<ResponseData>{
-        const checkAddress=await this.checkAddressMustExists(addressId);
+     async remove(
+        addressId:string,
+        userId:string
+    ):Promise<ResponseData>{
+        const checkAddress=await this.checkAddressMustExists(addressId, userId);
 
         if (!checkAddress) {
             return responseValue(false, HttpStatus.NOT_FOUND, 'Address Not Found');

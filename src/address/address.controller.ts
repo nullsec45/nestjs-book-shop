@@ -3,21 +3,19 @@ import {
     Post,
     HttpCode,
     Body, 
-    ParseIntPipe,
-    Get,
     Param, 
     Put, 
     Delete, 
-    Query, 
     UseGuards, 
-    Res
+    Res,
+    Request,
+    Req
 } from "@nestjs/common";
 import { AddressService } from "@/address/address.service";
 import { CreateAddressRequest, UpdateAddressRequest } from "@/model/address.model";
 import { AuthenticatedGuard } from '@/auth/authenticated.guard';
 import { JwtAuthGuard } from '@/auth/jwt-auth.guard';
 import { Response } from 'express'
-import { BookAuthorService } from "@/book-author/book-author.service";
 
 @UseGuards(AuthenticatedGuard)
 @UseGuards(JwtAuthGuard)
@@ -31,30 +29,33 @@ export class AddressController {
     async create(
         @Res() response:Response,
         @Body() request:CreateAddressRequest,
+        @Request() req,
     ) {
-        const result= await this.addressService.create(request);
+        const result= await this.addressService.create(request, req.user.id);
         return response.status(result.statusCode).json(result);
     }
 
-    @Put('/:bookAuthorId')
+    @Put('/:addressId')
     async update(
         @Res() response:Response,
-        @Param('bookAuthorId') bookAuthorId:string,
+        @Param('addressId') addressId:string,
         @Body() request:UpdateAddressRequest,
+        @Req() req,
     ){
-        request.id=bookAuthorId;
-        const result=await this.addressService.update(request);
+        request.id=addressId;
+        const result=await this.addressService.update(request, req.user.id);
         
         return response.status(result.statusCode).json(result);
     }
 
-    @Delete('/:bookAuthorId')
+    @Delete('/:addressId')
     @HttpCode(200)
     async remove(
         @Res() response:Response,
-        @Param('bookAuthorId') bookAuthorId:string
+        @Param('addressId') addressId:string,
+        @Req() req
     ){
-        const result=await this.addressService.remove(bookAuthorId);
+        const result=await this.addressService.remove(addressId, req.user.id);
         
         return response.status(result.statusCode).json(result);
     }
