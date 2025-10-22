@@ -9,9 +9,9 @@ export class RegisterUserRequest {
 }
 
 export class UserResponse {
+  name:string;
+  username:string;
   email: string;
-  role?: Role;
-  token?: string;
 }
 
 export class LoginUserRequest {
@@ -20,9 +20,14 @@ export class LoginUserRequest {
 }
 
 export class UpdateUserRequest {
-name:string;
+  name:string;
   username:string;
   email?: string;
-  password?: string;
-  role?: Role;
 }
+
+export class UpdatePasswordRequest{
+  current_password:string;
+  new_password:string;
+  confirm_password:string;
+}
+
