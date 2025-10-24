@@ -27,6 +27,9 @@ import { AddressModule } from './address/address.module';
 import { UserController } from './user/user.controller';
 import { UserService } from './user/user.service';
 import { UserModule } from './user/user.module';
+import { CartController } from './cart/cart.controller';
+import { CartService } from './cart/cart.service';
+import { CartModule } from './cart/cart.module';
 
 
 @Module({
@@ -42,9 +45,10 @@ import { UserModule } from './user/user.module';
     BookAuthorModule,
     BookCategoryModule,
     AddressModule,
-    UserModule, 
+    UserModule,
+    CartModule, 
   ],
-  controllers: [AppController, AuthorController, CategoryController, BookController, BookAuthorController, BookCategoryController, AddressController, UserController],
-  providers: [AppService, AuthService,  JwtService, AuthorService, CategoryService, BookService, BookAuthorService, BookCategoryService, AddressService, UserService],
+  controllers: [AppController, AuthorController, CategoryController, BookController, BookAuthorController, BookCategoryController, AddressController, UserController, CartController],
+  providers: [AppService, AuthService,  JwtService, AuthorService, CategoryService, BookService, BookAuthorService, BookCategoryService, AddressService, UserService, CartService],
 })
 export class AppModule {}
