@@ -42,6 +42,6 @@ export class BookValidation {
     static readonly SEARCH=z.object({
         title:z.string().min(2).optional(),
         page:z.number().min(1).positive(),
-        size:z.number().min(1).max(100).positive()
+        size:z.number().min(1).positive()
     });
 }
