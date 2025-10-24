@@ -1,4 +1,4 @@
-import { HttpException, Inject, Injectable, HttpStatus } from '@nestjs/common';
+import {  Inject, Injectable, HttpStatus } from '@nestjs/common';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { PrismaService } from '../common/prisma.service';
 import { ValidationService } from '../common/validation.service';
@@ -10,6 +10,7 @@ import { User } from '@prisma/client';
 import { JwtService } from '@nestjs/jwt';
 import { ResponseData } from '@/types/response';
 import {responseValue, responseValueWithData} from '@/utils/response';
+import { ZodError } from 'zod';
 
 @Injectable()
 export class AuthService {
@@ -46,35 +47,55 @@ export class AuthService {
     }
 
     async register(request:RegisterUserRequest):Promise<ResponseData>{
-        const registerRequest=this.validationService.validate(UserValidation.REGISTER, request);
+        try{
+            const registerRequest=this.validationService.validate(UserValidation.REGISTER, request);
 
-        const totalUserWithSameEmail=await this.prismaService.user.count({
-            where:{
-                email:registerRequest.email
+            const totalUserWithSameEmail=await this.prismaService.user.count({
+                where:{
+                    email:registerRequest.email
+                }
+            });
+
+            if(totalUserWithSameEmail != 0){
+                return responseValue(false, HttpStatus.CONFLICT, 'Account  already exists');
             }
-        });
 
-        if(totalUserWithSameEmail != 0){
-            return responseValue(false, HttpStatus.CONFLICT, 'Account  already exists');
-        }
+            const totalUserWithSameUsername=await this.prismaService.user.count({
+                where:{
+                    username:registerRequest.username
+                }
+            });
 
-        const totalUserWithSameUsername=await this.prismaService.user.count({
-            where:{
-                username:registerRequest.username
+            if(totalUserWithSameUsername != 0){
+                return responseValue(false, HttpStatus.CONFLICT, 'Account  already exists');
             }
-        });
 
-        if(totalUserWithSameUsername != 0){
-            return responseValue(false, HttpStatus.CONFLICT, 'Account  already exists');
+            registerRequest.password = await bcrypt.hash(registerRequest.password,10);
+
+            const user=await this.prismaService.user.create({
+                data:registerRequest
+            });
+            
+            return responseValue(true, HttpStatus.CREATED, 'Successfully register');
+        }catch(error){
+            if (error instanceof ZodError) {
+                const details = error.issues.map(i => ({
+                    path: i.path.join('.'),
+                    code: i.code,
+                    message: i.message,
+                }));
+
+                return {
+                    status: false,
+                    statusCode: HttpStatus.BAD_REQUEST,
+                    message: 'validation fail',
+                    error: details 
+                } as ResponseData;
+            }
+
+            return responseValue(false, HttpStatus.INTERNAL_SERVER_ERROR,error.message ?? 'Internal server error.');
         }
-
-        registerRequest.password = await bcrypt.hash(registerRequest.password,10);
-
-        const user=await this.prismaService.user.create({
-            data:registerRequest
-        });
-        
-        return responseValue(true, HttpStatus.CREATED, 'Successfully register');
+      
     }
 
     async login(request:LoginUserRequest):Promise<ResponseData>{
@@ -133,7 +154,22 @@ export class AuthService {
                 tokenExpiredAt:tokenExpiredAt,
             });
         }catch(error){
-             return responseValue(false, HttpStatus.CONFLICT, error.message);
+            if (error instanceof ZodError) {
+                const details = error.issues.map(i => ({
+                    path: i.path.join('.'),
+                    code: i.code,
+                    message: i.message,
+                }));
+
+                return {
+                    status: false,
+                    statusCode: HttpStatus.BAD_REQUEST,
+                    message: 'validation fail',
+                    error: details 
+                } as ResponseData;
+            }
+
+            return responseValue(false, HttpStatus.INTERNAL_SERVER_ERROR, error.message ?? 'Internal server error.');
         }
     }
 

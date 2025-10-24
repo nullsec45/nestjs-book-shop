@@ -10,6 +10,7 @@ import { isUUID } from '@/utils/is-uuid';
 import {responseValue, responseValueWithData, responseValueWithPaginate} from '@/utils/response';
 import { ResponseData } from '@/types/response';
 import { slugWithId } from "@/utils/generate-slug";
+import { ZodError } from 'zod';
 
 @Injectable()
 export class AuthorService {
@@ -52,140 +53,194 @@ export class AuthorService {
     async create(
         request:CreateAuthorRequest
     ):Promise<ResponseData>{
-        request.slug=slugWithId(request.name || "", { uniqueStrategy: "time" });
-        const createRequest:CreateAuthorRequest=this.validationService.validate(
-            AuthorValidation.CREATE,
-            request
-        );
+        try{
+            request.slug=slugWithId(request.name || "", { uniqueStrategy: "time" });
+             const createRequest:CreateAuthorRequest=this.validationService.validate(
+                AuthorValidation.CREATE,
+                request
+            );
 
-        if (!(await this.isUnique({ name: request.name }))) {
-            return responseValue(false, HttpStatus.CONFLICT, 'Author Already in Database');
-        }
-
-        const author=await this.prismaService.author.create({
-            data:{
-                ...createRequest,
+            if (!(await this.isUnique({ name: request.name }))) {
+                return responseValue(false, HttpStatus.CONFLICT, 'Author Already in Database');
             }
-        });
 
-        const authorData=this.authorResponse(author);
+            const author=await this.prismaService.author.create({
+                data:{
+                    ...createRequest,
+                }
+            });
 
-        return responseValueWithData(true, HttpStatus.CREATED, 'Successfully Created Data', authorData);
+            const authorData=this.authorResponse(author);
+
+            return responseValueWithData(true, HttpStatus.CREATED, 'Successfully Created Data', authorData);
+        }catch(error){
+            if (error instanceof ZodError) {
+                const details = error.issues.map(i => ({
+                    path: i.path.join('.'),
+                    code: i.code,
+                    message: i.message,
+                }));
+
+                return {
+                    status: false,
+                    statusCode: HttpStatus.UNPROCESSABLE_ENTITY,
+                    message: 'validation fail',
+                    error: details 
+                } as ResponseData;
+            }
+            
+
+            return responseValue(false, HttpStatus.INTERNAL_SERVER_ERROR, error.message ?? 'Internal server error.');
+        }
     }
 
     async search(request: SearchAuthorRequest): Promise<ResponseData> {
-        const searchRequest: SearchAuthorRequest = this.validationService.validate(AuthorValidation.SEARCH, request);
+        try{
+            const searchRequest: SearchAuthorRequest = this.validationService.validate(AuthorValidation.SEARCH, request);
 
-        const filters: any[] = [];
+            const filters: any[] = [];
 
-        if (searchRequest.name) {
-            filters.push({
-            OR: [
-                { first_name: { contains: searchRequest.name } },
-                { last_name: { contains: searchRequest.name } },
-            ],
-            });
+            if (searchRequest.name) {
+                filters.push({
+                OR: [
+                    { first_name: { contains: searchRequest.name } },
+                    { last_name: { contains: searchRequest.name } },
+                ],
+                });
+            }
+
+            if (searchRequest.name) {
+                filters.push({
+                name: { contains: searchRequest.name },
+                });
+            }
+
+            const perPage = Math.max(1, Number(searchRequest.size) || 10);
+            const page = Math.max(1, Number(searchRequest.page) || 1);
+            const skip = (page - 1) * perPage;
+
+            const [authors, total] = await Promise.all([
+                this.prismaService.author.findMany({
+                where: { 
+                    AND: filters,
+                    deleted_at: null
+                },
+                take: perPage,
+                skip,
+                // orderBy: { created_at: "desc" },
+                }),
+                this.prismaService.author.count({
+                where: { AND: filters },
+                }),
+            ]);
+
+            const items = authors.map((author) => this.authorResponse(author));
+
+            return responseValueWithPaginate(
+                true,
+                HttpStatus.OK,
+                "Successfully Get Data Authors.",
+                items,
+                page,
+                perPage,
+                total
+            );
+        }catch(error){
+            return responseValue(false, HttpStatus.INTERNAL_SERVER_ERROR, error.message ?? 'Internal server error.');
         }
-
-        if (searchRequest.name) {
-            filters.push({
-            name: { contains: searchRequest.name },
-            });
-        }
-
-        const perPage = Math.max(1, Number(searchRequest.size) || 10);
-        const page = Math.max(1, Number(searchRequest.page) || 1);
-        const skip = (page - 1) * perPage;
-
-        const [authors, total] = await Promise.all([
-            this.prismaService.author.findMany({
-            where: { 
-                AND: filters,
-                deleted_at: null
-            },
-            take: perPage,
-            skip,
-            // orderBy: { created_at: "desc" },
-            }),
-            this.prismaService.author.count({
-            where: { AND: filters },
-            }),
-        ]);
-
-        const items = authors.map((author) => this.authorResponse(author));
-
-        return responseValueWithPaginate(
-            true,
-            HttpStatus.OK,
-            "Successfully Get Data Authors.",
-            items,
-            page,
-            perPage,
-            total
-        );
+        
     }
 
     async get(param:string):Promise<ResponseData>{
-        const author=await this.checkAuthorMustExists(param);
+        try{
+            const author=await this.checkAuthorMustExists(param);
 
-        if (!author) {
-            return responseValue(false, HttpStatus.NOT_FOUND, 'Author Not Found');
+            if (!author) {
+                return responseValue(false, HttpStatus.NOT_FOUND, 'Author Not Found');
+            }
+
+            const authorData=this.authorResponse(author);
+            return responseValueWithData(true, HttpStatus.OK, 'Successfully Get Data', authorData);
+        }catch(error){
+            return responseValue(false, HttpStatus.INTERNAL_SERVER_ERROR, error.message ?? 'Internal server error.');
         }
-
-        const authorData=this.authorResponse(author);
-        return responseValueWithData(true, HttpStatus.OK, 'Successfully Get Data', authorData);
+        
     }
 
     async update(
         request:UpdateAuthorRequest
     ):Promise<ResponseData>{
-        let author=await this.checkAuthorMustExists(request.id);
+        try{
+            let author=await this.checkAuthorMustExists(request.id);
 
-        if (!author) {
-            return responseValue(false, HttpStatus.NOT_FOUND, 'Author Not Found');
-        }
-
-        let slug=author.slug;
-        
-        if (slug !== request.slug) {
-            slug=slugWithId(request.name || "", { uniqueStrategy: "time" });
-            request.slug=slug;
-        }
-
-        const updateRequest=this.validationService.validate(AuthorValidation.UPDATE,request);
-
-
-        author=await this.prismaService.author.update({
-            where:{
-                id:author.id,
-            },
-            data:{
-                ...updateRequest,
-                updated_at:new Date()
+            if (!author) {
+                return responseValue(false, HttpStatus.NOT_FOUND, 'Author Not Found');
             }
-        })
 
-        const authorData=this.authorResponse(author);
+            let slug=author.slug;
+            
+            if (slug !== request.slug) {
+                slug=slugWithId(request.name || "", { uniqueStrategy: "time" });
+                request.slug=slug;
+            }
 
-        return responseValueWithData(true, HttpStatus.OK, 'Successfully Updated Data', authorData);
+            const updateRequest=this.validationService.validate(AuthorValidation.UPDATE,request);
+
+
+            author=await this.prismaService.author.update({
+                where:{
+                    id:author.id,
+                },
+                data:{
+                    ...updateRequest,
+                    updated_at:new Date()
+                }
+            })
+
+            const authorData=this.authorResponse(author);
+
+            return responseValueWithData(true, HttpStatus.OK, 'Successfully Updated Data', authorData);
+        }catch(error){
+            if (error instanceof ZodError) {
+                const details = error.issues.map(i => ({
+                    path: i.path.join('.'),
+                    code: i.code,
+                    message: i.message,
+                }));
+
+                return {
+                    status: false,
+                    statusCode: HttpStatus.UNPROCESSABLE_ENTITY,
+                    message: 'validation fail',
+                    error: details 
+                } as ResponseData;
+            }
+            
+            return responseValue(false, HttpStatus.INTERNAL_SERVER_ERROR, error.message ?? 'Internal server error.');
+        }
     }
 
     async remove(authorId:string):Promise<ResponseData>{
-        const checkAuthor=await this.checkAuthorMustExists(authorId);
+        try{
+            const checkAuthor=await this.checkAuthorMustExists(authorId);
 
-        if (!checkAuthor) {
-            return responseValue(false, HttpStatus.NOT_FOUND, 'Author Not Found');
-        }
-
-        const author=await this.prismaService.author.update({
-            where:{
-                id:authorId,
-            },
-            data:{
-                deleted_at:new Date()
+            if (!checkAuthor) {
+                return responseValue(false, HttpStatus.NOT_FOUND, 'Author Not Found');
             }
-        });
 
-        return responseValue(true, HttpStatus.OK, 'Successfully Deleted Data');
+            const author=await this.prismaService.author.update({
+                where:{
+                    id:authorId,
+                },
+                data:{
+                    deleted_at:new Date()
+                }
+            });
+
+            return responseValue(true, HttpStatus.OK, 'Successfully Deleted Data');
+        }catch(error){
+            return responseValue(false, HttpStatus.INTERNAL_SERVER_ERROR, error.message ?? 'Internal server error.');
+        }
+       
     }
 }

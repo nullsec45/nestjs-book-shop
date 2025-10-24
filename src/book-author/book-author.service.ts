@@ -1,4 +1,4 @@
-import { Injectable, Inject,HttpStatus, forwardRef } from '@nestjs/common';
+import { Injectable, Inject,HttpStatus } from '@nestjs/common';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { PrismaService } from '@/common/prisma.service';
 import { ValidationService } from '@/common/validation.service';
@@ -10,7 +10,7 @@ import {  BookAuthor, Prisma } from "@prisma/client";
 import { BookAuthorValidation } from '@/book-author/book-author.validation';
 import {responseValue, responseValueWithData, responseValueWithPaginate, } from '@/utils/response';
 import { ResponseData } from '@/types/response';
-// import { isUUID } from '@/utils/is-uuid';
+import { ZodError } from 'zod';
 
 @Injectable()
 export class BookAuthorService {
@@ -54,95 +54,138 @@ export class BookAuthorService {
     async create(
         request:CreateBookAuthorRequest
     ):Promise<ResponseData>{
-        const createRequest:CreateBookAuthorRequest=this.validationService.validate(
-            BookAuthorValidation.CREATE,
-            request
-        );
+        try{
+            const createRequest:CreateBookAuthorRequest=this.validationService.validate(
+                BookAuthorValidation.CREATE,
+                request
+            );
 
-        const book=await this.bookService.checkBookMustExists(createRequest.book_id);
+            const book=await this.bookService.checkBookMustExists(createRequest.book_id);
 
-        if (!book) {
-            return responseValue(false, HttpStatus.NOT_FOUND, 'Book Not Found');
+            if (!book) {
+                return responseValue(false, HttpStatus.NOT_FOUND, 'Book Not Found');
+            }
+
+            const author=await this.authorService.checkAuthorMustExists(createRequest.author_id);
+
+            if (!author) {
+                return responseValue(false, HttpStatus.NOT_FOUND, 'Author Not Found');
+            }
+            
+            if (!(await this.isUnique({ AND:[
+                {book_id: request.book_id },
+                {author_id:request.author_id},
+            ] }))) {
+                return responseValue(false, HttpStatus.CONFLICT, 'Book Author Already in Database');
+            }
+
+            const pivot=await this.prismaService.bookAuthor.create({
+                data:{
+                    book:{connect:{id:createRequest.book_id}},
+                    author:{connect:{id:createRequest.author_id}},
+                    ord:createRequest.ord ?? null,
+                },
+            });
+
+            const bookAuthorData=this.bookAuthorResponse(pivot);
+            return responseValueWithData(true, HttpStatus.CREATED, 'Successfully Created Data', bookAuthorData);
+        }catch(error){
+            if (error instanceof ZodError) {
+                const details = error.issues.map(i => ({
+                    path: i.path.join('.'),
+                    code: i.code,
+                    message: i.message,
+                }));
+
+                return {
+                    status: false,
+                    statusCode: HttpStatus.UNPROCESSABLE_ENTITY,
+                    message: 'validation fail',
+                    errors: details 
+                } as ResponseData;
+            }
+
+            return responseValue(false, HttpStatus.INTERNAL_SERVER_ERROR, error.message ?? 'Internal server error.');
         }
-
-        const author=await this.authorService.checkAuthorMustExists(createRequest.author_id);
-
-        if (!author) {
-            return responseValue(false, HttpStatus.NOT_FOUND, 'Author Not Found');
-        }
-        
-        if (!(await this.isUnique({ AND:[
-            {book_id: request.book_id },
-            {author_id:request.author_id},
-        ] }))) {
-            return responseValue(false, HttpStatus.CONFLICT, 'Book Author Already in Database');
-        }
-
-        const pivot=await this.prismaService.bookAuthor.create({
-            data:{
-                book:{connect:{id:createRequest.book_id}},
-                author:{connect:{id:createRequest.author_id}},
-                ord:createRequest.ord ?? null,
-            },
-        });
-
-        const bookAuthorData=this.bookAuthorResponse(pivot);
-        return responseValueWithData(true, HttpStatus.CREATED, 'Successfully Created Data', bookAuthorData);
     }
 
     async update(
         request:UpdateBookAuthorRequest
     ):Promise<ResponseData>{
-        const updateRequest=this.validationService.validate(BookAuthorValidation.UPDATE,request);
+        try{
+            const updateRequest=this.validationService.validate(BookAuthorValidation.UPDATE,request);
         
-        let bookAuthor=await this.checkBookAuthorMustExists(request.id);
+            let bookAuthor=await this.checkBookAuthorMustExists(request.id);
 
-        if (!bookAuthor) {
-            return responseValue(false, HttpStatus.NOT_FOUND, 'Book Author Not Found');
-        }
-
-        const book=await this.bookService.checkBookMustExists(updateRequest.book_id);
-
-        if (!book) {
-            return responseValue(false, HttpStatus.NOT_FOUND, 'Book Not Found');
-        }
-
-        const author=await this.authorService.checkAuthorMustExists(updateRequest.author_id);
-
-        if (!author) {
-            return responseValue(false, HttpStatus.NOT_FOUND, 'Author Not Found');
-        }
-
-        bookAuthor=await this.prismaService.bookAuthor.update({
-            where:{
-                id:bookAuthor.id,
-            },
-            data:{
-                book:{connect:{id:updateRequest.book_id}},
-                author:{connect:{id:updateRequest.author_id}},
-                ord:updateRequest.ord ?? null,
-                updated_at:new Date()
+            if (!bookAuthor) {
+                return responseValue(false, HttpStatus.NOT_FOUND, 'Book Author Not Found');
             }
-        })
 
-        const bookData=this.bookAuthorResponse(bookAuthor);
+            const book=await this.bookService.checkBookMustExists(updateRequest.book_id);
 
-        return responseValueWithData(true, HttpStatus.OK, 'Successfully Updated Data', bookData);
+            if (!book) {
+                return responseValue(false, HttpStatus.NOT_FOUND, 'Book Not Found');
+            }
+
+            const author=await this.authorService.checkAuthorMustExists(updateRequest.author_id);
+
+            if (!author) {
+                return responseValue(false, HttpStatus.NOT_FOUND, 'Author Not Found');
+            }
+
+            bookAuthor=await this.prismaService.bookAuthor.update({
+                where:{
+                    id:bookAuthor.id,
+                },
+                data:{
+                    book:{connect:{id:updateRequest.book_id}},
+                    author:{connect:{id:updateRequest.author_id}},
+                    ord:updateRequest.ord ?? null,
+                    updated_at:new Date()
+                }
+            })
+
+            const bookData=this.bookAuthorResponse(bookAuthor);
+
+            return responseValueWithData(true, HttpStatus.OK, 'Successfully Updated Data', bookData);
+        }catch(error){
+            if (error instanceof ZodError) {
+                const details = error.issues.map(i => ({
+                    path: i.path.join('.'),
+                    code: i.code,
+                    message: i.message,
+                }));
+
+                return {
+                    status: false,
+                    statusCode: HttpStatus.UNPROCESSABLE_ENTITY,
+                    message: 'validation fail',
+                    errors: details 
+                } as ResponseData;
+            }
+
+            return responseValue(false, HttpStatus.INTERNAL_SERVER_ERROR, error.message ?? 'Internal server error.');
+        }
     }
 
     async remove(bookAuthorId:string):Promise<ResponseData>{
-        const checkBookAuthor=await this.checkBookAuthorMustExists(bookAuthorId);
+        try{
+            const checkBookAuthor=await this.checkBookAuthorMustExists(bookAuthorId);
 
-        if (!checkBookAuthor) {
-            return responseValue(false, HttpStatus.NOT_FOUND, 'Book Author Not Found');
+            if (!checkBookAuthor) {
+                return responseValue(false, HttpStatus.NOT_FOUND, 'Book Author Not Found');
+            }
+
+            await this.prismaService.bookAuthor.delete({
+                where:{
+                    id:bookAuthorId,
+                },
+            });
+
+            return responseValue(true, HttpStatus.OK, 'Successfully Deleted Data');
+        }catch(error){
+            return responseValue(false, HttpStatus.INTERNAL_SERVER_ERROR, error.message ?? 'Internal server error.');
         }
-
-        await this.prismaService.bookAuthor.delete({
-            where:{
-                id:bookAuthorId,
-            },
-        });
-
-        return responseValue(true, HttpStatus.OK, 'Successfully Deleted Data');
+        
     }
 }

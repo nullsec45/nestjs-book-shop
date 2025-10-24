@@ -10,7 +10,7 @@ import { Book, BookCategory, Prisma } from "@prisma/client";
 import { BookCategoryValidation } from '@/book-category/book-category.validation';
 import {responseValue, responseValueWithData, responseValueWithPaginate, } from '@/utils/response';
 import { ResponseData } from '@/types/response';
-// import { isUUID } from '@/utils/is-uuid';
+import { ZodError } from 'zod';
 
 @Injectable()
 export class BookCategoryService {
@@ -53,94 +53,136 @@ export class BookCategoryService {
     async create(
         request:CreateBookCategoryRequest
     ):Promise<ResponseData>{
-        const createRequest:CreateBookCategoryRequest=this.validationService.validate(
-            BookCategoryValidation.CREATE,
-            request
-        );
+        try{
+            const createRequest:CreateBookCategoryRequest=this.validationService.validate(
+                BookCategoryValidation.CREATE,
+                request
+            );
 
-        const book=await this.bookService.checkBookMustExists(createRequest.book_id);
+            const book=await this.bookService.checkBookMustExists(createRequest.book_id);
 
-        if (!book) {
-            return responseValue(false, HttpStatus.NOT_FOUND, 'Book Not Found');
+            if (!book) {
+                return responseValue(false, HttpStatus.NOT_FOUND, 'Book Not Found');
+            }
+
+            const category=await this.categoryService.checkCategoryMustExists(createRequest.category_id);
+
+            if (!category) {
+                return responseValue(false, HttpStatus.NOT_FOUND, 'Category Not Found');
+            }
+            
+            if (!(await this.isUnique({ AND:[
+                {book_id: request.book_id },
+                {category_id:request.category_id},
+            ] }))) {
+                return responseValue(false, HttpStatus.CONFLICT, 'Book Category Already in Database');
+            }
+
+            const pivot=await this.prismaService.bookCategory.create({
+                data:{
+                    book:{connect:{id:createRequest.book_id}},
+                    category:{connect:{id:createRequest.category_id}},
+                },
+            });
+
+            const bookCategoryData=this.bookCategoryResponse(pivot);
+            return responseValueWithData(true, HttpStatus.CREATED, 'Successfully Created Data', bookCategoryData);
+        }catch(error){
+            if (error instanceof ZodError) {
+                const details = error.issues.map(i => ({
+                    path: i.path.join('.'),
+                    code: i.code,
+                    message: i.message,
+                }));
+
+                return {
+                    status: false,
+                    statusCode: HttpStatus.UNPROCESSABLE_ENTITY,
+                    message: 'validation fail',
+                    errors: details 
+                } as ResponseData;
+            }
+
+            return responseValue(false, HttpStatus.INTERNAL_SERVER_ERROR, error.message ?? 'Internal server error.');
         }
-
-        const category=await this.categoryService.checkCategoryMustExists(createRequest.category_id);
-
-        if (!category) {
-            return responseValue(false, HttpStatus.NOT_FOUND, 'Category Not Found');
-        }
-        
-        if (!(await this.isUnique({ AND:[
-            {book_id: request.book_id },
-            {category_id:request.category_id},
-        ] }))) {
-            return responseValue(false, HttpStatus.CONFLICT, 'Book Category Already in Database');
-        }
-
-        const pivot=await this.prismaService.bookCategory.create({
-            data:{
-                book:{connect:{id:createRequest.book_id}},
-                category:{connect:{id:createRequest.category_id}},
-            },
-        });
-
-        const bookCategoryData=this.bookCategoryResponse(pivot);
-        return responseValueWithData(true, HttpStatus.CREATED, 'Successfully Created Data', bookCategoryData);
     }
 
     async update(
         request:UpdateBookCategoryRequest
     ):Promise<ResponseData>{
-        const updateRequest=this.validationService.validate(BookCategoryValidation.UPDATE,request);
-      
+        try{
+            const updateRequest=this.validationService.validate(BookCategoryValidation.UPDATE,request);
 
-        let bookCategory=await this.checkBookCategoryMustExists(request.id);
+            let bookCategory=await this.checkBookCategoryMustExists(request.id);
 
-        if (!bookCategory) {
-            return responseValue(false, HttpStatus.NOT_FOUND, 'Book Category Not Found');
-        }
-
-        const book=await this.bookService.checkBookMustExists(updateRequest.book_id);
-
-        if (!book) {
-            return responseValue(false, HttpStatus.NOT_FOUND, 'Book Not Found');
-        }
-
-        const category=await this.categoryService.checkCategoryMustExists(updateRequest.category_id);
-
-        if (!category) {
-            return responseValue(false, HttpStatus.NOT_FOUND, 'Category Not Found');
-        }
-
-        bookCategory=await this.prismaService.bookCategory.update({
-            where:{
-                id:bookCategory.id,
-            },
-            data:{
-                book:{connect:{id:updateRequest.book_id}},
-                category:{connect:{id:updateRequest.category_id}},
-                updated_at:new Date()
+            if (!bookCategory) {
+                return responseValue(false, HttpStatus.NOT_FOUND, 'Book Category Not Found');
             }
-        })
 
-        const bookCategoryData=this.bookCategoryResponse(bookCategory);
+            const book=await this.bookService.checkBookMustExists(updateRequest.book_id);
 
-        return responseValueWithData(true, HttpStatus.OK, 'Successfully Updated Data', bookCategoryData);
+            if (!book) {
+                return responseValue(false, HttpStatus.NOT_FOUND, 'Book Not Found');
+            }
+
+            const category=await this.categoryService.checkCategoryMustExists(updateRequest.category_id);
+
+            if (!category) {
+                return responseValue(false, HttpStatus.NOT_FOUND, 'Category Not Found');
+            }
+
+            bookCategory=await this.prismaService.bookCategory.update({
+                where:{
+                    id:bookCategory.id,
+                },
+                data:{
+                    book:{connect:{id:updateRequest.book_id}},
+                    category:{connect:{id:updateRequest.category_id}},
+                    updated_at:new Date()
+                }
+            })
+
+            const bookCategoryData=this.bookCategoryResponse(bookCategory);
+
+            return responseValueWithData(true, HttpStatus.OK, 'Successfully Updated Data', bookCategoryData);
+        }catch(error){
+            if (error instanceof ZodError) {
+                const details = error.issues.map(i => ({
+                    path: i.path.join('.'),
+                    code: i.code,
+                    message: i.message,
+                }));
+
+                return {
+                    status: false,
+                    statusCode: HttpStatus.UNPROCESSABLE_ENTITY,
+                    message: 'validation fail',
+                    errors: details 
+                } as ResponseData;
+            }
+
+            return responseValue(false, HttpStatus.INTERNAL_SERVER_ERROR, error.message ?? 'Internal server error.');
+        }
     }
 
     async remove(bookCategoryId:string):Promise<ResponseData>{
-        const checkBookCategory=await this.checkBookCategoryMustExists(bookCategoryId);
+        try{
+            const checkBookCategory=await this.checkBookCategoryMustExists(bookCategoryId);
 
-        if (!checkBookCategory) {
-            return responseValue(false, HttpStatus.NOT_FOUND, 'Book Category Not Found');
+            if (!checkBookCategory) {
+                return responseValue(false, HttpStatus.NOT_FOUND, 'Book Category Not Found');
+            }
+
+            await this.prismaService.bookCategory.delete({
+                where:{
+                    id:bookCategoryId,
+                },
+            });
+
+            return responseValue(true, HttpStatus.OK, 'Successfully Deleted Data');
+        }catch(error){
+            return responseValue(false, HttpStatus.INTERNAL_SERVER_ERROR, error.message ?? 'Internal server error.');
         }
-
-        await this.prismaService.bookCategory.delete({
-            where:{
-                id:bookCategoryId,
-            },
-        });
-
-        return responseValue(true, HttpStatus.OK, 'Successfully Deleted Data');
+        
     }
 }

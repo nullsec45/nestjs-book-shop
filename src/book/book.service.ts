@@ -10,6 +10,7 @@ import { isUUID } from '@/utils/is-uuid';
 import {responseValue, responseValueWithData, responseValueWithPaginate, } from '@/utils/response';
 import { ResponseData } from '@/types/response';
 import { slugWithId } from "@/utils/generate-slug";
+import { ZodError } from 'zod';
 
 @Injectable()
 export class BookService {
@@ -58,146 +59,195 @@ export class BookService {
     async create(
         request:CreateBookRequest
     ):Promise<ResponseData>{
-        request.slug=slugWithId(request.title || "", { uniqueStrategy: "time" });
+        try{
+            request.slug=slugWithId(request.title || "", { uniqueStrategy: "time" });
 
-        const createRequest:CreateBookRequest=this.validationService.validate(
-            BookValidation.CREATE,
-            request
-        );
-       
-        if (!(await this.isUnique({ AND:[{title: request.title},{deleted_at:null}]}  ))) {
-            return responseValue(false, HttpStatus.CONFLICT, 'Book Already in Database');
-        }
-
-        if (!(await this.isUnique({ AND:[{isbn: request.isbn},{deleted_at:null}]}  ))) {
-            return responseValue(false, HttpStatus.CONFLICT, 'Book Already in Database');
-        }
-
-        const book=await this.prismaService.book.create({
-            data:{
-                ...createRequest,
+            const createRequest:CreateBookRequest=this.validationService.validate(
+                BookValidation.CREATE,
+                request
+            );
+        
+            if (!(await this.isUnique({ AND:[{title: request.title},{deleted_at:null}]}  ))) {
+                return responseValue(false, HttpStatus.CONFLICT, 'Book Already in Database');
             }
-        });
 
-        const bookData=this.bookResponse(book);
+            if (!(await this.isUnique({ AND:[{isbn: request.isbn},{deleted_at:null}]}  ))) {
+                return responseValue(false, HttpStatus.CONFLICT, 'Book Already in Database');
+            }
 
-        return responseValueWithData(true, HttpStatus.CREATED, 'Successfully Created Data', bookData);
+            const book=await this.prismaService.book.create({
+                data:{
+                    ...createRequest,
+                }
+            });
+
+            const bookData=this.bookResponse(book);
+
+            return responseValueWithData(true, HttpStatus.CREATED, 'Successfully Created Data', bookData);
+        }catch(error){
+            if (error instanceof ZodError) {
+                const details = error.issues.map(i => ({
+                    path: i.path.join('.'),
+                    code: i.code,
+                    message: i.message,
+                }));
+
+                return {
+                    status: false,
+                    statusCode: HttpStatus.UNPROCESSABLE_ENTITY,
+                    message: 'validation fail',
+                    errors: details 
+                } as ResponseData;
+            }
+
+            return responseValue(false, HttpStatus.INTERNAL_SERVER_ERROR, error.message ?? 'Internal server error.');
+        }
     }
 
     async search(request: SearchBookRequest): Promise<ResponseData> {
-        const searchRequest: SearchBookRequest = this.validationService.validate(BookValidation.SEARCH, request);
+        try{
+            const searchRequest: SearchBookRequest = this.validationService.validate(BookValidation.SEARCH, request);
 
-        const filters: any[] = [];
+            const filters: any[] = [];
 
-        if (searchRequest.title) {
-            filters.push({
-            OR: [
-                { first_name: { contains: searchRequest.title } },
-                { last_name: { contains: searchRequest.title } },
-            ],
-            });
+            if (searchRequest.title) {
+                filters.push({
+                OR: [
+                    { title: { contains: searchRequest.title } },
+                    { publisher: { contains: searchRequest.title } },
+                ],
+                });
+            }
+
+            if (searchRequest.title) {
+                filters.push({
+                title: { contains: searchRequest.title },
+                });
+            }
+
+            const perPage = Math.max(1, Number(searchRequest.size) || 10);
+            const page = Math.max(1, Number(searchRequest.page) || 1);
+            const skip = (page - 1) * perPage;
+
+            const [books, total] = await Promise.all([
+                this.prismaService.book.findMany({
+                where: { 
+                    AND: filters,
+                    deleted_at: null
+                },
+                take: perPage,
+                skip,
+                // orderBy: { created_at: "desc" },
+                }),
+                this.prismaService.book.count({
+                where: { AND: filters },
+                }),
+            ]);
+
+            const items = books.map((book) => this.bookResponse(book));
+
+            return responseValueWithPaginate(
+                true,
+                HttpStatus.OK,
+                "Successfully Get Data Books",
+                items,
+                page,
+                perPage,
+                total
+            );
+        }catch(error){
+            return responseValue(false, HttpStatus.INTERNAL_SERVER_ERROR, error.message ?? 'Internal server error.');
         }
-
-        if (searchRequest.title) {
-            filters.push({
-            title: { contains: searchRequest.title },
-            });
-        }
-
-        const perPage = Math.max(1, Number(searchRequest.size) || 10);
-        const page = Math.max(1, Number(searchRequest.page) || 1);
-        const skip = (page - 1) * perPage;
-
-        const [books, total] = await Promise.all([
-            this.prismaService.book.findMany({
-            where: { 
-                AND: filters,
-                deleted_at: null
-            },
-            take: perPage,
-            skip,
-            // orderBy: { created_at: "desc" },
-            }),
-            this.prismaService.book.count({
-            where: { AND: filters },
-            }),
-        ]);
-
-        const items = books.map((book) => this.bookResponse(book));
-
-        return responseValueWithPaginate(
-            true,
-            HttpStatus.OK,
-            "Successfully Get Data Books",
-            items,
-            page,
-            perPage,
-            total
-        );
     }
 
     async get(param:string):Promise<ResponseData>{
-        const book=await this.checkBookMustExists(param);
+        try{
+            const book=await this.checkBookMustExists(param);
 
-        if (!book) {
-            return responseValue(false, HttpStatus.NOT_FOUND, 'Book Not Found');
+            if (!book) {
+                return responseValue(false, HttpStatus.NOT_FOUND, 'Book Not Found');
+            }
+
+            const bookData=this.bookResponse(book);
+            return responseValueWithData(true, HttpStatus.OK, 'Successfully Get Data', bookData);
+        }catch(error){
+            return responseValue(false, HttpStatus.INTERNAL_SERVER_ERROR, error.message ?? 'Internal server error.');
         }
-
-        const bookData=this.bookResponse(book);
-        return responseValueWithData(true, HttpStatus.OK, 'Successfully Get Data', bookData);
     }
 
     async update(
         request:UpdateBookRequest
     ):Promise<ResponseData>{
-        console.log(request.id)
-        let book=await this.checkBookMustExists(request.id);
+        try{
+            let book=await this.checkBookMustExists(request.id);
 
-        if (!book) {
-            return responseValue(false, HttpStatus.NOT_FOUND, 'Book Not Found');
-        }
-
-        let slug=book.slug;
-        
-        if (slug !== request.slug) {
-            slug=slugWithId(request.title || "", { uniqueStrategy: "time" });
-            request.slug=slug;
-        }
-
-        const updateRequest=this.validationService.validate(BookValidation.UPDATE,request);
-
-
-        book=await this.prismaService.book.update({
-            where:{
-                id:book.id,
-            },
-            data:{
-                ...updateRequest,
-                updated_at:new Date()
+            if (!book) {
+                return responseValue(false, HttpStatus.NOT_FOUND, 'Book Not Found');
             }
-        })
 
-        const bookData=this.bookResponse(book);
+            let slug=book.slug;
+            
+            if (slug !== request.slug) {
+                slug=slugWithId(request.title || "", { uniqueStrategy: "time" });
+                request.slug=slug;
+            }
 
-        return responseValueWithData(true, HttpStatus.OK, 'Successfully Updated Data', bookData);
+            const updateRequest=this.validationService.validate(BookValidation.UPDATE,request);
+
+
+            book=await this.prismaService.book.update({
+                where:{
+                    id:book.id,
+                },
+                data:{
+                    ...updateRequest,
+                    updated_at:new Date()
+                }
+            })
+
+            const bookData=this.bookResponse(book);
+
+            return responseValueWithData(true, HttpStatus.OK, 'Successfully Updated Data', bookData);
+        }catch(error){
+            if (error instanceof ZodError) {
+                const details = error.issues.map(i => ({
+                    path: i.path.join('.'),
+                    code: i.code,
+                    message: i.message,
+                }));
+
+                return {
+                    status: false,
+                    statusCode: HttpStatus.UNPROCESSABLE_ENTITY,
+                    message: 'validation fail',
+                    errors: details 
+                } as ResponseData;
+            }
+
+            return responseValue(false, HttpStatus.INTERNAL_SERVER_ERROR, error.message ?? 'Internal server error.');
+        }
     }
 
     async remove(bookId:string):Promise<ResponseData>{
-        const checkBook=await this.checkBookMustExists(bookId);
+        try{
+            const checkBook=await this.checkBookMustExists(bookId);
 
-        if (!checkBook) {
-            return responseValue(false, HttpStatus.NOT_FOUND, 'Book Not Found');
-        }
-
-        await this.prismaService.book.update({
-            where:{
-                id:bookId,
-            },
-            data:{
-                deleted_at:new Date()
+            if (!checkBook) {
+                return responseValue(false, HttpStatus.NOT_FOUND, 'Book Not Found');
             }
-        });
 
-        return responseValue(true, HttpStatus.OK, 'Successfully Deleted Data');
+            await this.prismaService.book.update({
+                where:{
+                    id:bookId,
+                },
+                data:{
+                    deleted_at:new Date()
+                }
+            });
+
+            return responseValue(true, HttpStatus.OK, 'Successfully Deleted Data');
+        }catch(error){
+            return responseValue(false, HttpStatus.INTERNAL_SERVER_ERROR, error.message ?? 'Internal server error.');
+        }
     }
 }
