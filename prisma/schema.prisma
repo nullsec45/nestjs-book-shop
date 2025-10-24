@@ -138,7 +138,7 @@ model Address {
 
 model Cart {
   id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id    String   @db.Uuid
+  user_id    String   @db.Uuid @unique
   is_active  Boolean  @default(true)
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -158,6 +158,9 @@ model CartItem {
   price_snapshot Decimal  @db.Decimal(12, 2)
   added_at       DateTime @default(now())
   note           String?  @db.Text
+
+  created_at DateTime  @default(now()) @db.Timestamptz
+  updated_at DateTime? @db.Timestamptz
 
   // relations
   cart Cart @relation(fields: [cart_id], references: [id], onDelete: Cascade)
