@@ -10,6 +10,7 @@ import { isUUID } from '@/utils/is-uuid';
 import {responseValue, responseValueWithData, responseValueWithPaginate} from '@/utils/response';
 import { ResponseData } from '@/types/response';
 import { slugWithId } from "@/utils/generate-slug";
+import { ZodError } from 'zod';
 
 @Injectable()
 export class CategoryService {
@@ -51,141 +52,191 @@ export class CategoryService {
     async create(
         request:CreateCategoryRequest
     ):Promise<ResponseData>{
-        request.slug=slugWithId(request.name || "", { uniqueStrategy: "time" });
-        const createRequest:CreateCategoryRequest=this.validationService.validate(
-            CategoryValidation.CREATE,
-            request
-        );
+        try{
+            request.slug=slugWithId(request.name || "", { uniqueStrategy: "time" });
+            const createRequest:CreateCategoryRequest=this.validationService.validate(
+                CategoryValidation.CREATE,
+                request
+            );
 
-        if (!(await this.isUnique({ name: request.name }))) {
-            return responseValue(false, HttpStatus.CONFLICT, 'Name Already in Database');
-        }
-
-        const category=await this.prismaService.category.create({
-            data:{
-                ...createRequest,
+            if (!(await this.isUnique({ name: request.name }))) {
+                return responseValue(false, HttpStatus.CONFLICT, 'Name Already in Database');
             }
-        });
 
-        const categoryData=this.categoryResponse(category);
+            const category=await this.prismaService.category.create({
+                data:{
+                    ...createRequest,
+                }
+            });
 
-        return responseValueWithData(true, HttpStatus.CREATED, 'Successfully Created Data', categoryData);
+            const categoryData=this.categoryResponse(category);
+
+            return responseValueWithData(true, HttpStatus.CREATED, 'Successfully Created Data', categoryData);
+        }catch(error){
+            if (error instanceof ZodError) {
+                const details = error.issues.map(i => ({
+                    path: i.path.join('.'),
+                    code: i.code,
+                    message: i.message,
+                }));
+
+                return {
+                    status: false,
+                    statusCode: HttpStatus.UNPROCESSABLE_ENTITY,
+                    message: 'validation fail',
+                    errors: details 
+                } as ResponseData;
+            }
+
+            return responseValue(false, HttpStatus.INTERNAL_SERVER_ERROR, error.message ?? 'Internal server error.');
+        }
     }
 
 
     async search(request: SearchCategoryRequest): Promise<ResponseData> {
-        const searchRequest: SearchCategoryRequest = this.validationService.validate(CategoryValidation.SEARCH, request);
+        try{
+            const searchRequest: SearchCategoryRequest = this.validationService.validate(CategoryValidation.SEARCH, request);
 
-        const filters: any[] = [];
+            const filters: any[] = [];
 
-        if (searchRequest.name) {
-            filters.push({
-            OR: [
-                { first_name: { contains: searchRequest.name } },
-                { last_name: { contains: searchRequest.name } },
-            ],
-            });
+            if (searchRequest.name) {
+                filters.push({
+                OR: [
+                    { first_name: { contains: searchRequest.name } },
+                    { last_name: { contains: searchRequest.name } },
+                ],
+                });
+            }
+
+            if (searchRequest.name) {
+                filters.push({
+                name: { contains: searchRequest.name },
+                });
+            }
+
+            const perPage = Math.max(1, Number(searchRequest.size) || 10);
+            const page = Math.max(1, Number(searchRequest.page) || 1);
+            const skip = (page - 1) * perPage;
+
+            const [categories, total] = await Promise.all([
+                this.prismaService.category.findMany({
+                where: { 
+                    AND: filters,
+                    deleted_at: null
+                },
+                take: perPage,
+                skip,
+                // orderBy: { created_at: "desc" },
+                }),
+                this.prismaService.category.count({
+                where: { AND: filters },
+                }),
+            ]);
+
+            const items = categories.map((category) => this.categoryResponse(category));
+
+            return responseValueWithPaginate(
+                true,
+                HttpStatus.OK,
+                "Successfully Get Data Categories.",
+                items,
+                page,
+                perPage,
+                total
+            );
+        }catch(error){
+            return responseValue(false, HttpStatus.INTERNAL_SERVER_ERROR, error.message ?? 'Internal server error.');
         }
-
-        if (searchRequest.name) {
-            filters.push({
-            name: { contains: searchRequest.name },
-            });
-        }
-
-        const perPage = Math.max(1, Number(searchRequest.size) || 10);
-        const page = Math.max(1, Number(searchRequest.page) || 1);
-        const skip = (page - 1) * perPage;
-
-        const [categories, total] = await Promise.all([
-            this.prismaService.category.findMany({
-            where: { 
-                AND: filters,
-                deleted_at: null
-            },
-            take: perPage,
-            skip,
-            // orderBy: { created_at: "desc" },
-            }),
-            this.prismaService.category.count({
-            where: { AND: filters },
-            }),
-        ]);
-
-        const items = categories.map((category) => this.categoryResponse(category));
-
-        return responseValueWithPaginate(
-            true,
-            HttpStatus.OK,
-            "Successfully Get Data Categories.",
-            items,
-            page,
-            perPage,
-            total
-        );
     }
 
     async get(param:string):Promise<ResponseData>{
-        const category=await this.checkCategoryMustExists(param);
+        try{
+            const category=await this.checkCategoryMustExists(param);
 
-        if (!category) {
-            return responseValue(false, HttpStatus.NOT_FOUND, 'Category Not Found');
+            if (!category) {
+                return responseValue(false, HttpStatus.NOT_FOUND, 'Category Not Found');
+            }
+
+            const categoryData=this.categoryResponse(category);
+            return responseValueWithData(true, HttpStatus.OK, 'Successfully Get Data', categoryData);
+        }catch(error){
+            return responseValue(false, HttpStatus.INTERNAL_SERVER_ERROR, error.message ?? 'Internal server error.');
         }
-
-        const categoryData=this.categoryResponse(category);
-        return responseValueWithData(true, HttpStatus.OK, 'Successfully Get Data', categoryData);
     }
 
     async update(
         request:UpdateCategoryRequest
     ):Promise<ResponseData>{
-        let category=await this.checkCategoryMustExists(request.id);
+        try{
+            let category=await this.checkCategoryMustExists(request.id);
 
-        if (!category) {
-            return responseValue(false, HttpStatus.NOT_FOUND, 'Category Not Found');
-        }
-
-        let slug=category.slug;
-        
-        if (slug !== request.slug) {
-            slug=slugWithId(request.name || "", { uniqueStrategy: "time" });
-            request.slug=slug;
-        }
-
-        const updateRequest=this.validationService.validate(CategoryValidation.UPDATE,request);
-
-
-        category=await this.prismaService.category.update({
-            where:{
-                id:category.id,
-            },
-            data:{
-                ...updateRequest,
-                updated_at:new Date()
+            if (!category) {
+                return responseValue(false, HttpStatus.NOT_FOUND, 'Category Not Found');
             }
-        })
 
-        const authorData=this.categoryResponse(category);
+            let slug=category.slug;
+            
+            if (slug !== request.slug) {
+                slug=slugWithId(request.name || "", { uniqueStrategy: "time" });
+                request.slug=slug;
+            }
 
-        return responseValueWithData(true, HttpStatus.OK, 'Successfully Updated Data', authorData);
+            const updateRequest=this.validationService.validate(CategoryValidation.UPDATE,request);
+
+
+            category=await this.prismaService.category.update({
+                where:{
+                    id:category.id,
+                },
+                data:{
+                    ...updateRequest,
+                    updated_at:new Date()
+                }
+            })
+
+            const authorData=this.categoryResponse(category);
+
+            return responseValueWithData(true, HttpStatus.OK, 'Successfully Updated Data', authorData);
+        }catch(error){
+            if (error instanceof ZodError) {
+                const details = error.issues.map(i => ({
+                    path: i.path.join('.'),
+                    code: i.code,
+                    message: i.message,
+                }));
+
+                return {
+                    status: false,
+                    statusCode: HttpStatus.UNPROCESSABLE_ENTITY,
+                    message: 'validation fail',
+                    errors: details 
+                } as ResponseData;
+            }
+
+            return responseValue(false, HttpStatus.INTERNAL_SERVER_ERROR, error.message ?? 'Internal server error.');
+        }
     }
 
     async remove(categoryId:string):Promise<ResponseData>{
-        const checkCategory=await this.checkCategoryMustExists(categoryId);
+        try{
+             const checkCategory=await this.checkCategoryMustExists(categoryId);
 
-        if (!checkCategory) {
-            return responseValue(false, HttpStatus.NOT_FOUND, 'Category Not Found');
-        }
-
-        await this.prismaService.category.update({
-            where:{
-                id:categoryId,
-            },
-            data:{
-                deleted_at:new Date()
+            if (!checkCategory) {
+                return responseValue(false, HttpStatus.NOT_FOUND, 'Category Not Found');
             }
-        });
 
-        return responseValue(true, HttpStatus.OK, 'Successfully Deleted Data');
+            await this.prismaService.category.update({
+                where:{
+                    id:categoryId,
+                },
+                data:{
+                    deleted_at:new Date()
+                }
+            });
+
+            return responseValue(true, HttpStatus.OK, 'Successfully Deleted Data');
+        }catch(error){
+            return responseValue(false, HttpStatus.INTERNAL_SERVER_ERROR, error.message ?? 'Internal server error.');
+        }       
     }
 }
