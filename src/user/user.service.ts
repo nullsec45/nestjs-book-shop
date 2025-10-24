@@ -10,6 +10,7 @@ import { User } from '@prisma/client';
 import { ResponseData } from '@/types/response';
 import {responseValue, responseValueWithData} from '@/utils/response';
 import { ZodError } from 'zod';
+import { Http } from 'winston/lib/winston/transports';
 
 @Injectable()
 export class UserService {
@@ -102,9 +103,9 @@ export class UserService {
 
                 return {
                     status: false,
-                    statusCode: 500,
+                    statusCode: HttpStatus.UNPROCESSABLE_ENTITY,
                     message: 'validation fail',
-                    error: details 
+                    errors: details 
                 } as ResponseData;
             }
 
@@ -147,9 +148,9 @@ export class UserService {
 
                 return {
                     status: false,
-                    statusCode: 500,
+                    statusCode: HttpStatus.UNPROCESSABLE_ENTITY,
                     message: 'validation fail',
-                    error: details 
+                    errors: details 
                 } as ResponseData;
             }
 
