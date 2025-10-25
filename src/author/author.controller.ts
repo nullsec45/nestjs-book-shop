@@ -4,16 +4,20 @@ import { AuthorResponse, CreateAuthorRequest, SearchAuthorRequest, UpdateAuthorR
 import { AuthenticatedGuard } from '@/auth/authenticated.guard';
 import { JwtAuthGuard } from '@/auth/jwt-auth.guard';
 import { Response } from 'express'
+import { RolesGuard } from "@/auth/roles.guard";
+import { Roles } from "@/auth/roles.decorator";
+import { Role } from "@/auth/role.enum";
 
 
 @UseGuards(AuthenticatedGuard)
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('authors')
 export class AuthorController {
     constructor(
         private authorService:AuthorService
     ){}
 
+    @Roles(Role.ADMIN)
     @Post()
     async create(
         @Res() response:Response,
@@ -35,6 +39,7 @@ export class AuthorController {
         return response.status(result.statusCode).json(result);
     }
 
+    @Roles(Role.ADMIN)
     @Put('/:authorId')
     @HttpCode(200)
     async update(
@@ -48,6 +53,7 @@ export class AuthorController {
         return response.status(result.statusCode).json(result);
     }
 
+    @Roles(Role.ADMIN)
     @Delete('/:authorId')
     @HttpCode(200)
     async remove(

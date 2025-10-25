@@ -4,6 +4,8 @@ import { CreateCategoryRequest, SearchCategoryRequest, UpdateCategoryRequest } f
 import { AuthenticatedGuard } from '@/auth/authenticated.guard';
 import { JwtAuthGuard } from '@/auth/jwt-auth.guard';
 import { Response } from 'express'
+import { Roles } from "@/auth/roles.decorator";
+import { Role } from "@/auth/role.enum";
 
 @UseGuards(AuthenticatedGuard)
 @UseGuards(JwtAuthGuard)
@@ -13,6 +15,7 @@ export class CategoryController {
         private categoryService:CategoryService
     ){}
 
+    @Roles(Role.ADMIN)
     @Post()
     async create(
         @Res() response:Response,
@@ -33,6 +36,7 @@ export class CategoryController {
         return response.status(result.statusCode).json(result);
     }
 
+    @Roles(Role.ADMIN)
     @Put('/:categoryId')
     @HttpCode(200)
     async update(
@@ -46,6 +50,7 @@ export class CategoryController {
         return response.status(result.statusCode).json(result);
     }
 
+    @Roles(Role.ADMIN)
     @Delete('/:categoryId')
     @HttpCode(200)
     async remove(

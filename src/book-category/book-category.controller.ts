@@ -5,9 +5,12 @@ import { AuthenticatedGuard } from '@/auth/authenticated.guard';
 import { JwtAuthGuard } from '@/auth/jwt-auth.guard';
 import { Response } from 'express'
 import { BookCategoryService } from "@/book-category/book-category.service";
+import { Roles } from "@/auth/roles.decorator";
+import { Role } from "@/auth/role.enum";
 
 @UseGuards(AuthenticatedGuard)
 @UseGuards(JwtAuthGuard)
+@Roles(Role.ADMIN)
 @Controller('book-category')
 export class BookCategoryController {
     constructor(
