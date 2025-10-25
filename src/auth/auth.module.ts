@@ -8,17 +8,23 @@ import { JwtModule } from '@nestjs/jwt';
 import { SessionSerializer } from './session.serializer';
 import { LocalStrategy } from './local.strategy';
 import 'dotenv/config';
+import { RolesGuard } from './roles.guard';
+import { UserModule } from '@/user/user.module';
 
 @Module({
-   imports: [PassportModule.register({ session: true }), JwtModule.register(
-        {
-            secret: process.env.JWT_SECRET,
-            signOptions: {
-                expiresIn: "1h"
+   imports: [
+        PassportModule.register({ session: true }), 
+        JwtModule.register(
+            {
+                secret: process.env.JWT_SECRET,
+                signOptions: {
+                    expiresIn: "1h"
+                }
             }
-        }
-    )],
+        ),
+        UserModule
+    ],
   controllers: [AuthController],
-  providers: [AuthService, LocalStrategy, JwtStrategy,SessionSerializer]
+  providers: [AuthService, RolesGuard, LocalStrategy, JwtStrategy,SessionSerializer],
 })
 export class AuthModule {}
