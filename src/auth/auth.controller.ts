@@ -1,15 +1,10 @@
-import { Controller, Get, Post, UseGuards, Request, Body, Res } from '@nestjs/common';
-import { AuthService } from './auth.service';
-import { LocalAuthGuard } from './local-auth.guard';
-import { AuthenticatedGuard } from './authenticated.guard';
-import { JwtAuthGuard } from './jwt-auth.guard';
-import { LoginUserRequest, RegisterUserRequest, UpdateUserRequest, UserResponse } from '../model/user.model';
-import { WebResponse } from '../model/web.model';
-import { Auth } from '../common/auth.decorator';
-import { User } from '@prisma/client';
+import { Controller, Get, Post, UseGuards, Request, Body, Res, Req } from '@nestjs/common';
+import { AuthService } from '@/auth/auth.service';
+import { AuthenticatedGuard } from '@/auth/authenticated.guard';
+import { JwtAuthGuard } from '@/auth/jwt-auth.guard';
+import { LoginUserRequest, RegisterUserRequest, UpdateUserRequest, UserResponse } from '@/model/user.model';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import {Logger} from 'winston';
-import { request } from 'http';
 
 import { Response } from 'express'
 
