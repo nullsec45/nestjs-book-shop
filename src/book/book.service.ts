@@ -4,13 +4,23 @@ import { PrismaService } from '@/common/prisma.service';
 import { ValidationService } from '@/common/validation.service';
 import {Logger} from 'winston';
 import { BookResponse, CreateBookRequest, SearchBookRequest, UpdateBookRequest } from '@/model/book.model';
-import { Book, Prisma } from "@prisma/client";
+import { Book, Category, Prisma, Author } from "@prisma/client";
 import { BookValidation } from '@/book/book.validation';
 import { isUUID } from '@/utils/is-uuid';
 import {responseValue, responseValueWithData, responseValueWithPaginate, } from '@/utils/response';
 import { ResponseData } from '@/types/response';
 import { slugWithId } from "@/utils/generate-slug";
 import { ZodError } from 'zod';
+import { CategoryResponse } from '@/model/category.model';
+import { AuthorResponse } from '@/model/author.model';
+
+type BookWithCategories = Prisma.BookGetPayload<{ 
+    include: { 
+        book_categories:{
+            include:{category:true}
+        }
+    } 
+}>;
 
 @Injectable()
 export class BookService {
@@ -22,7 +32,25 @@ export class BookService {
     
     }
 
-    private bookResponse(book:Book):BookResponse{
+    private categoryResponse(data:Category):CategoryResponse{
+        return {
+            id:data.id,
+            slug:data.slug,
+            name:data.name,
+            description: data.description,
+        }
+    }
+
+    private authorResposne(data:Author):AuthorResponse{
+        return {
+            id:data.id,
+            slug:data.slug,
+            name:data.name,
+            bio:data.bio,
+        }
+    }
+
+    private bookResponse(book:any):BookResponse{
         return {
             id:book.id,
             slug:book.slug,
@@ -35,15 +63,28 @@ export class BookService {
             publisher:book.publisher,
             published_at:book.published_at,
             stock_cached:book.stock_cached,
+            categories:Array.isArray(book.book_categories) ? book.book_categories.map((bc: any) => bc?.category).filter(Boolean).map((c:any) => this.categoryResponse(c)) : [],
+            authors:Array.isArray(book.book_authors) ? book.book_authors.map((ba: any) => ba?.author).filter(Boolean).map((a:any) => this.authorResposne(a)) : [],
         }
     }
 
-    async checkBookMustExists(param:string):Promise<Book>{  
+    async checkBookMustExists(param:string, type:string='check'):Promise<Book | BookWithCategories | null>{  
         const where = isUUID(param) ? {id:param,deleted_at:null} : {slug:param, deleted_at:null};
 
-        const book=await this.prismaService.book.findFirst({
-            where: where as any,
-        });
+        const [book]=await this.prismaService.$transaction([
+            this.prismaService.book.findFirst({
+               where: where as any,
+               include:type === 'detail' ? {
+                    book_categories:{
+                        include:{category:true}
+                    },
+                    book_authors:{
+                        include:{author:true}
+                    }
+
+               } : undefined
+            })
+        ]);
 
         return book;
     }
@@ -162,13 +203,13 @@ export class BookService {
 
     async get(param:string):Promise<ResponseData>{
         try{
-            const book=await this.checkBookMustExists(param);
+            const book=await this.checkBookMustExists(param, 'detail');
 
             if (!book) {
                 return responseValue(false, HttpStatus.NOT_FOUND, 'Book Not Found');
             }
 
-            const bookData=this.bookResponse(book);
+            const bookData:BookResponse=this.bookResponse(book);
             return responseValueWithData(true, HttpStatus.OK, 'Successfully Get Data', bookData);
         }catch(error){
             return responseValue(false, HttpStatus.INTERNAL_SERVER_ERROR, error.message ?? 'Internal server error.');
