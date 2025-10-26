@@ -17,9 +17,13 @@ import { AuthenticatedGuard } from '@/auth/authenticated.guard';
 import { JwtAuthGuard } from '@/auth/jwt-auth.guard';
 import { Response } from 'express'
 import { CartService } from "@/cart/cart.service";
+import { RolesGuard } from "@/auth/roles.guard";
+import { Roles } from "@/auth/roles.decorator";
+import { Role } from "@/auth/role.enum";
 
 @UseGuards(AuthenticatedGuard)
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.CUSTOMER)
 @Controller('carts')
 export class CartController {
     constructor(

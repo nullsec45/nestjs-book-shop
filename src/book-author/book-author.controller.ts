@@ -7,9 +7,10 @@ import { Response } from 'express'
 import { BookAuthorService } from "@/book-author/book-author.service";
 import { Roles } from "@/auth/roles.decorator";
 import { Role } from "@/auth/role.enum";
+import { RolesGuard } from "@/auth/roles.guard";
 
 @UseGuards(AuthenticatedGuard)
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(Role.ADMIN)
 @Controller('book-author')
 export class BookAuthorController {
