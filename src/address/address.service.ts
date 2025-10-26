@@ -66,8 +66,8 @@ export class AddressService {
 
         const address=await this.prismaService.address.create({
             data:{
-                user_id:userId,
                 ...createRequest,
+                user_id:userId,
             }
         });
 
