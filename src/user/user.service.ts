@@ -1,16 +1,18 @@
 import {  Inject, Injectable, HttpStatus } from '@nestjs/common';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
-import { PrismaService } from '../common/prisma.service';
-import { ValidationService } from '../common/validation.service';
-import {  UpdatePasswordRequest, UpdateUserRequest, UserResponse } from '../model/user.model';
+import { PrismaService } from '@/common/prisma.service';
+import { ValidationService } from '@/common/validation.service';
+import {  AddressResponse, UpdatePasswordRequest, UpdateUserRequest, UserResponse } from '@/model/user.model';
 import {Logger} from 'winston';
 import { UserValidation } from '@/user/user.validation';
 import * as bcrypt from 'bcrypt';
-import { User } from '@prisma/client';
+import { User, Prisma } from '@prisma/client';
 import { ResponseData } from '@/types/response';
 import {responseValue, responseValueWithData} from '@/utils/response';
 import { ZodError } from 'zod';
-import { Http } from 'winston/lib/winston/transports';
+import { Role } from '@/auth/role.enum';
+
+type UserWithAddresses = Prisma.UserGetPayload<{ include: { addresses: true } }>;
 
 @Injectable()
 export class UserService {
@@ -22,21 +24,36 @@ export class UserService {
 
     }
 
-    private userResponse(user:User):UserResponse{
+    private addressResponse(a: any): AddressResponse {
         return {
-            name:user.name,
-            username:user.username,
-            email:user.email
+            label: a.label,
+            recipient_name: a.recipient_name,
+            phone: a.phone,
+            line: a.line,
+            city: a.city,
+            province: a.province,
+            is_default: a.is_default,         
+        };
+    }
+
+
+    private userResponse(data:any):UserResponse{
+        return {
+            name:data.name,
+            username:data.username,
+            email:data.email,
+            addresses:  Array.isArray(data.addresses) ? data.addresses.map((a: any) => this.addressResponse(a)) : [],
         }
     }
 
-    async checkUserMustExists(id:string):Promise<User>{  
-        const user=await this.prismaService.user.findUnique({
-            where: {
-                id
-            },
-        });
 
+    async checkUserMustExists(id:string, type:string='check'):Promise<User| UserWithAddresses | null>{  
+        const [user] = await this.prismaService.$transaction([
+            this.prismaService.user.findUnique({
+                where: { id },
+                include: type === 'detail' ? { addresses: true } : undefined,
+            }),
+        ]);
 
         return user;
     }
@@ -45,12 +62,12 @@ export class UserService {
         id:string
     ):Promise<ResponseData>{
        try{
-            const checkUser=await this.checkUserMustExists(id)
+            const checkUser=await this.checkUserMustExists(id,'detail')
             if(!checkUser){
                 return responseValue(false, HttpStatus.CONFLICT,'Unauthorized');
             }
 
-            const userData=this.userResponse(checkUser);
+            const userData:UserResponse=this.userResponse(checkUser);
 
             return responseValueWithData(true, HttpStatus.OK, 'Successfully get profile', userData);
        }catch(error){
@@ -156,5 +173,14 @@ export class UserService {
 
             return responseValue(false, HttpStatus.INTERNAL_SERVER_ERROR,error.message ?? 'Internal server error');
         }
+    }
+
+    async getRoleByUserId(userId:string):Promise<Role>{
+        const user=await this.prismaService.user.findUnique({
+            where:{id:userId},
+            select:{role:true},
+        });
+
+        return user.role as Role;
     }
 }
