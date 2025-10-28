@@ -6,12 +6,11 @@ import { PrismaService } from './prisma.service';
 import { ValidationService } from './validation.service';
 import { APP_FILTER } from '@nestjs/core';
 import { ErrorFilter } from './error.filter';
-// import { AuthMiddleware } from './auth.middleware';
 
 @Global()
 @Module({
     imports:[
-            WinstonModule.forRoot({
+        WinstonModule.forRoot({
             format:winston.format.json(),
             transports:[
                 new winston.transports.Console()
@@ -19,7 +18,7 @@ import { ErrorFilter } from './error.filter';
         }),
         ConfigModule.forRoot({
             isGlobal:true
-        })
+        }),
     ],
     providers:[PrismaService,ValidationService,{
         provide:APP_FILTER,
