@@ -30,7 +30,14 @@ import { UserModule } from './user/user.module';
 import { CartController } from './cart/cart.controller';
 import { CartService } from './cart/cart.service';
 import { CartModule } from './cart/cart.module';
-
+// import { OrderController } from './order/order.controller';
+// import { OrderService } from './order/order.service';
+// import { OrderModule } from './order/order.module';
+import { FileUploadService } from './common/file-upload.service';
+import { MediaModule } from './media/media.module';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { ConfigService } from '@nestjs/config';
+import * as path from 'path';
 
 @Module({
   imports: [
@@ -46,9 +53,53 @@ import { CartModule } from './cart/cart.module';
     BookCategoryModule,
     AddressModule,
     UserModule,
-    CartModule, 
+    CartModule,
+    // OrderModule,
+    MediaModule, 
+    ServeStaticModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => {
+        const dir = config.get<string>('PATH_FILE') || 'uploads';
+        const rootPath = path.isAbsolute(dir) ? dir : path.resolve(process.cwd(), dir);
+        return [
+          {
+            rootPath,                // folder fisik yang di-serve
+            serveRoot: '/uploads/',  // URL prefix untuk mengakses
+          },
+        ];
+      },
+    }),
   ],
-  controllers: [AppController, AuthorController, CategoryController, BookController, BookAuthorController, BookCategoryController, AddressController, UserController, CartController],
-  providers: [AppService, AuthService,  JwtService, AuthorService, CategoryService, BookService, BookAuthorService, BookCategoryService, AddressService, UserService, CartService],
+  controllers: [
+    AppController, 
+    AuthorController, 
+    CategoryController, 
+    BookController, 
+    BookAuthorController, 
+    BookCategoryController, 
+    AddressController, 
+    UserController, 
+    CartController, 
+    // OrderController, 
+  ],
+  providers: [
+    AppService, 
+    AuthService,  
+    JwtService, 
+    AuthorService, 
+    CategoryService, 
+    BookService, 
+    BookAuthorService, 
+    BookCategoryService, 
+    AddressService, 
+    UserService, 
+    CartService, 
+    // OrderService,
+    FileUploadService,
+    // Reflector,
+    //  { provide: APP_GUARD, useClass: JwtAuthGuard}, 
+    // {provide:APP_GUARD, useClass:RolesGuard}
+  ],
 })
 export class AppModule {}
