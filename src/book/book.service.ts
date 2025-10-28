@@ -1,4 +1,4 @@
-import { Injectable, Inject,HttpStatus } from '@nestjs/common';
+import { Injectable, Inject,HttpStatus,forwardRef } from '@nestjs/common';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { PrismaService } from '@/common/prisma.service';
 import { ValidationService } from '@/common/validation.service';
@@ -13,6 +13,8 @@ import { slugWithId } from "@/utils/generate-slug";
 import { ZodError } from 'zod';
 import { CategoryResponse } from '@/model/category.model';
 import { AuthorResponse } from '@/model/author.model';
+import { MediaService } from '@/media/media.service';
+import { MediaResponse } from '@/model/media.model';
 
 type BookWithCategories = Prisma.BookGetPayload<{ 
     include: { 
@@ -25,9 +27,11 @@ type BookWithCategories = Prisma.BookGetPayload<{
 @Injectable()
 export class BookService {
     constructor(
-        private validationService:ValidationService,
+        private readonly validationService:ValidationService,
         @Inject(WINSTON_MODULE_PROVIDER) private logger:Logger,
-        private prismaService:PrismaService,
+        private readonly prismaService:PrismaService,
+        @Inject(forwardRef(() => MediaService))
+        private readonly mediaService: MediaService,
     ){
     
     }
@@ -50,7 +54,7 @@ export class BookService {
         }
     }
 
-    private bookResponse(book:any):BookResponse{
+    private bookResponse(book:any, cover?:MediaResponse):BookResponse{
         return {
             id:book.id,
             slug:book.slug,
@@ -65,6 +69,7 @@ export class BookService {
             stock_cached:book.stock_cached,
             categories:Array.isArray(book.book_categories) ? book.book_categories.map((bc: any) => bc?.category).filter(Boolean).map((c:any) => this.categoryResponse(c)) : [],
             authors:Array.isArray(book.book_authors) ? book.book_authors.map((ba: any) => ba?.author).filter(Boolean).map((a:any) => this.authorResposne(a)) : [],
+            cover: cover,
         }
     }
 
@@ -209,7 +214,9 @@ export class BookService {
                 return responseValue(false, HttpStatus.NOT_FOUND, 'Book Not Found');
             }
 
-            const bookData:BookResponse=this.bookResponse(book);
+            const coverMedia=await this.mediaService.findOneByParent(book.id, 'book_cover');
+
+            const bookData:BookResponse=this.bookResponse(book, coverMedia as MediaResponse | undefined);
             return responseValueWithData(true, HttpStatus.OK, 'Successfully Get Data', bookData);
         }catch(error){
             return responseValue(false, HttpStatus.INTERNAL_SERVER_ERROR, error.message ?? 'Internal server error.');
