@@ -1,4 +1,17 @@
-import { Controller,Post,HttpCode,Body, ParseIntPipe,Get,Param, Put, Delete, Query, UseGuards, Res} from "@nestjs/common";
+import { 
+    Controller,
+    Post,
+    HttpCode,
+    Body, 
+    ParseIntPipe,
+    Get,
+    Param, 
+    Put, 
+    Delete, 
+    Query, 
+    UseGuards, 
+    Res,
+} from "@nestjs/common";
 import { BookService } from "@/book/book.service";
 import { CreateBookRequest, SearchBookRequest, UpdateBookRequest } from "@/model/book.model";
 import { AuthenticatedGuard } from '@/auth/authenticated.guard';
@@ -18,6 +31,7 @@ export class BookController {
 
     @Roles(Role.ADMIN)
     @Post()
+    @HttpCode(201)
     async create(
         @Res() response:Response,
         @Body() request:CreateBookRequest
