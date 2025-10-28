@@ -14,6 +14,11 @@ export class CreateBookRequest {
   stock_cached:number;
 }
 
+export class BookCover{
+  url:string;
+  alt_text?:string;
+}
+
 export class BookResponse {
   id:string;
   slug:string;
@@ -28,6 +33,7 @@ export class BookResponse {
   stock_cached:number;
   categories?:CategoryResponse[];
   authors?:AuthorResponse[];
+  cover?:BookCover;
 }
 
 export class UpdateBookRequest {

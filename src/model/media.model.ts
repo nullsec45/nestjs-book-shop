@@ -5,11 +5,14 @@ export class CreateMediaRequest {
 }
 
 export class MediaResponse {
-  parent_id:string;
-  file:string;
+  url:string;
+  alt_name:string;
+  collection_name:string;
+  old_media?:string;
 }
 
 export class UpdateMediaRequest {
+   id:string;
    parent_id:string;
    collection_name:string;
    type:string;
