@@ -5,13 +5,13 @@ export class MediaValidation {
     static readonly CREATE = z.object({
         parent_id:z.string(),
         collection_name:z.string(),
-        type: z.enum(["book"]),
+        type: z.enum(["book","profile"]),
     });
 
     static readonly UPDATE = z.object({
         id:z.string(),
         parent_id:z.string(),
         collection_name:z.string(),
-        type: z.enum(["book"]),
+        type: z.enum(["book","profile"]),
     });
 }
