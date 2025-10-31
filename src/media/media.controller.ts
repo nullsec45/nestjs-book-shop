@@ -38,6 +38,46 @@ export class MediaController {
 
     }
 
+    private allowedMimeTypes(type: string){
+      switch(type){
+        case 'image':
+          return ["image/jpeg", "image/png", "image/svg","image/svg+xml","image/jpg"];
+        case 'video':
+          return ["video/mp4", "video/mpeg", "video/quicktime"];
+        case 'audio':
+          return ["audio/mpeg", "audio/wav", "audio/ogg"];
+        case 'document':
+          return ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
+        case 'excel':
+          return ["application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"];
+        case 'ppt':
+          return ["application/vnd.ms-powerpoint", "application/vnd.openxmlformats-officedocument.presentationml.presentation"];
+        case 'zip':
+          return ["application/zip", "application/x-rar-compressed"];
+        case 'word':
+          return ["application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
+        default:
+          return [];
+      }
+    }
+
+    private allowedMimeTypeByParent(parent: string){
+      let mimeType:string[] | null=null;
+      
+      switch(parent){
+        case 'book':
+          mimeType=this.allowedMimeTypes('image');
+          break;
+        case 'profile':
+          mimeType=this.allowedMimeTypes('image');
+          break;
+        default:
+          mimeType=null;
+      } 
+
+      return mimeType;
+    }
+
     @Post()
     @UseInterceptors(FileInterceptor('file'))
     async uploadMedia(
@@ -45,8 +85,9 @@ export class MediaController {
       @Body() request:CreateMediaRequest,
       @UploadedFile() file: Express.Multer.File
     ){
-        const allowedMimeTypes = ["image/jpeg", "image/png", "image/svg","image/svg+xml","image/jpg"];
+        const allowedMimeTypes = this.allowedMimeTypeByParent(request.type) || [];
         const fileData=await this.fileUploadService.handleFileUpload(file, allowedMimeTypes, 10 * 1024 * 1024);
+        console.log(fileData);
         fileData.data.buffer=file.buffer;
         const result=await this.mediaService.create(request, fileData.data);
         return response.status(result.statusCode).json(result);
@@ -75,7 +116,7 @@ export class MediaController {
       @UploadedFile() file: Express.Multer.File
     ) 
     {
-      const allowedMimeTypes = ["image/jpeg", "image/png", "image/svg","image/svg+xml","image/jpg"]; 
+      const allowedMimeTypes = this.allowedMimeTypeByParent(request.type) || []; 
       const fileData=await this.fileUploadService.handleFileUpload(file, allowedMimeTypes, 10 * 1024 * 1024);
       fileData.data.buffer=file.buffer;
       request.id=mediaId;

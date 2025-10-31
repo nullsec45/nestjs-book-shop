@@ -13,9 +13,8 @@ import { ConfigService } from '@nestjs/config';
 import * as fs from 'fs';
 import * as path from 'path';
 import { isRecordNotFound } from '@/utils/check-record';
-import { fi } from 'zod/locales';
-import { file } from 'zod';
-
+import { Prisma } from '@prisma/client';
+import { tr } from 'zod/locales';
 
 @Injectable()
 export class MediaService {
@@ -37,7 +36,7 @@ export class MediaService {
     private mediaResponse(media:any, old_media?:string):MediaResponse{
         const baseUrl=this.config.get<string>('BASE_URL') || '';
         return {
-            url: `${baseUrl}/uploads/${media.collection_name}/${media.file_name}`,
+            url: `${baseUrl}/v1/media/view/${media.id}`,
             alt_name: media.file_name,
             collection_name: media.collection_name,
             old_media:media.old_media
@@ -50,6 +49,7 @@ export class MediaService {
             case 'book':
                 const book=await this.bookService.checkBookMustExists(parentId);
                 return !!book;
+                
             default:
                 return false;
         }
@@ -65,24 +65,47 @@ export class MediaService {
         return media;
     }
    
+    async isUnique(where: Prisma.MediaWhereInput): Promise<boolean> {
+            const found = await this.prismaService.media.findFirst({
+                where,
+                select: { id: true },
+            });
+            return !Boolean(found);
+    }
+
+    async checkMediaParentUnique(type:string, parentId:string, collectionName:string):Promise<boolean>{
+        if(type === 'book' || type==='profile'){
+            return await this.isUnique({
+                AND: [{ parent_id: parentId }, { collection_name: collectionName }],
+            });
+        }
+
+        return true;
+    }
+
     async create(
         request:CreateMediaRequest,
         file:any
     ):Promise<ResponseData>{
         try{
-            const checkParent=await this.checkMediaParent(request.parent_id, request.type);
+            const createRequest:CreateMediaRequest=this.validationService.validate(
+                MediaValidation.CREATE,
+                request
+            );
+            
+            const checkParent=await this.checkMediaParent(createRequest.parent_id, createRequest.type);
 
             if(!checkParent){
                 return responseValue(false, HttpStatus.NOT_FOUND, "Parent Not Found");
             }
 
-            const createRequest:CreateMediaRequest=this.validationService.validate(
-                MediaValidation.CREATE,
-                request
-            );
+            const ok = await this.checkMediaParentUnique('book', request.parent_id, request.collection_name);
+            if (!ok) {
+                return responseValue(false, HttpStatus.CONFLICT, "Media already exists for this parent and collection name."); 
+            }
 
             const fileName=randomFileName(file.original_name);
-            const baseDir = this.config.get<string>('PATH_FILE')+'/'+request.collection_name || 'uploads'+'/'+request.collection_name;
+            const baseDir = this.config.get<string>('PATH_FILE')+'/'+createRequest.collection_name || 'uploads'+'/'+createRequest.collection_name;
             const destDir = path.isAbsolute(baseDir) ? baseDir : path.resolve(process.cwd(), baseDir);
 
             this.ensureDir(destDir);
