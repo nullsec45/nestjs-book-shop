@@ -177,16 +177,41 @@ export class BookService {
 
             const [books, total] = await Promise.all([
                 this.prismaService.book.findMany({
-                where: { 
-                    AND: filters,
-                    deleted_at: null
-                },
-                take: perPage,
-                skip,
-                // orderBy: { created_at: "desc" },
+                    where: { 
+                        AND: filters,
+                        deleted_at: null
+                    },
+                    take: perPage,
+                    skip,
+                    include:{
+                        book_categories:{
+                            take:3,
+                            include:{
+                                category:{
+                                    select:{
+                                        id:true,
+                                        slug:true,
+                                        name:true,
+                                    },
+                                }
+                            },
+                        },
+                        book_authors:{
+                            include:{
+                                author:{
+                                     select:{
+                                        id:true,
+                                        slug:true,
+                                        name:true,
+                                    },
+                                }
+                            }
+                        }
+                    }
+                    // orderBy: { created_at: "desc" },
                 }),
                 this.prismaService.book.count({
-                where: { AND: filters },
+                    where: { AND: filters },
                 }),
             ]);
 
