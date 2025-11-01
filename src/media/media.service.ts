@@ -15,6 +15,7 @@ import * as path from 'path';
 import { isRecordNotFound } from '@/utils/check-record';
 import { Prisma } from '@prisma/client';
 import { tr } from 'zod/locales';
+import { UserService } from '@/user/user.service';
 
 @Injectable()
 export class MediaService {
@@ -25,6 +26,8 @@ export class MediaService {
         @Inject(forwardRef(() => BookService))
         private readonly bookService: BookService,
         private config: ConfigService,
+        @Inject(forwardRef(() => UserService))
+        private userService: UserService,
     ){
 
     }
@@ -49,7 +52,9 @@ export class MediaService {
             case 'book':
                 const book=await this.bookService.checkBookMustExists(parentId);
                 return !!book;
-                
+            case 'profile':
+                const user=await this.userService.checkUserMustExists(parentId);
+                return !!user;
             default:
                 return false;
         }
@@ -66,11 +71,11 @@ export class MediaService {
     }
    
     async isUnique(where: Prisma.MediaWhereInput): Promise<boolean> {
-            const found = await this.prismaService.media.findFirst({
-                where,
-                select: { id: true },
-            });
-            return !Boolean(found);
+        const found = await this.prismaService.media.findFirst({
+            where,
+            select: { id: true },
+        });
+        return !Boolean(found);
     }
 
     async checkMediaParentUnique(type:string, parentId:string, collectionName:string):Promise<boolean>{
@@ -85,18 +90,25 @@ export class MediaService {
 
     async create(
         request:CreateMediaRequest,
-        file:any
+        file:any,
+        userId?:string
     ):Promise<ResponseData>{
         try{
             const createRequest:CreateMediaRequest=this.validationService.validate(
                 MediaValidation.CREATE,
                 request
             );
-            
+
             const checkParent=await this.checkMediaParent(createRequest.parent_id, createRequest.type);
 
             if(!checkParent){
                 return responseValue(false, HttpStatus.NOT_FOUND, "Parent Not Found");
+            }
+
+            if(createRequest.type==='profile'){
+                if (createRequest.parent_id !== userId){
+                    return responseValue(false, HttpStatus.FORBIDDEN, "You are not allowed to upload media for this profile.");
+                }
             }
 
             const ok = await this.checkMediaParentUnique('book', request.parent_id, request.collection_name);
@@ -226,7 +238,8 @@ export class MediaService {
 
     async update(
         request:UpdateMediaRequest,
-        file:any
+        file:any,
+        userId?:string
     ):Promise<ResponseData>{
         try{
             const mediaExists=await this.checkMediaMustExists(request.id);
@@ -234,6 +247,11 @@ export class MediaService {
             if(isRecordNotFound(mediaExists)){
                 return responseValue(false, HttpStatus.NOT_FOUND, "Media Not Found");
             }
+
+            const updateRequest:UpdateMediaRequest=this.validationService.validate(
+                MediaValidation.UPDATE,
+                request
+            );
             
             const oldMedia=mediaExists.file_name;
            
@@ -243,10 +261,11 @@ export class MediaService {
                 return responseValue(false, HttpStatus.NOT_FOUND, "Parent Not Found");
             }
 
-            const createRequest:CreateMediaRequest=this.validationService.validate(
-                MediaValidation.CREATE,
-                request
-            );
+            if(updateRequest.type==='profile'){
+                if (updateRequest.parent_id !== userId){
+                    return responseValue(false, HttpStatus.FORBIDDEN, "You are not allowed to upload media for this profile.");
+                }
+            }
 
             const fileName=randomFileName(file.original_name);
             const baseDir = this.config.get<string>('PATH_FILE')+'/'+request.collection_name || 'uploads'+'/'+request.collection_name;
@@ -259,13 +278,13 @@ export class MediaService {
 
             const updatedFile=await this.prismaService.media.update({
                 where:{
-                    id:request.id
+                    id:updateRequest.id
                 },
                 data:{
-                    parent_id: createRequest.parent_id,
+                    parent_id: updateRequest.parent_id,
                     name: file.original_name,
                     file_name:fileName,
-                    collection_name: createRequest.collection_name,
+                    collection_name: updateRequest.collection_name,
                     mime_type: file.mime_type,
                     size: file.size,
                     disk:'local',

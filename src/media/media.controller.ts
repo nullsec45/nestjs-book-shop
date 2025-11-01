@@ -11,7 +11,8 @@ import {
     Res,
     UseInterceptors, 
     UploadedFile,
-    Patch
+    Patch,
+    Req
 } from "@nestjs/common";
 import { MediaService } from "@/media/media.service";
 import { FileUploadService } from "@/common/file-upload.service";
@@ -63,7 +64,6 @@ export class MediaController {
 
     private allowedMimeTypeByParent(parent: string){
       let mimeType:string[] | null=null;
-      
       switch(parent){
         case 'book':
           mimeType=this.allowedMimeTypes('image');
@@ -83,13 +83,23 @@ export class MediaController {
     async uploadMedia(
       @Res() response:Response,
       @Body() request:CreateMediaRequest,
-      @UploadedFile() file: Express.Multer.File
+      @UploadedFile() file: Express.Multer.File,
+      @Req() req,
     ){
         const allowedMimeTypes = this.allowedMimeTypeByParent(request.type) || [];
         const fileData=await this.fileUploadService.handleFileUpload(file, allowedMimeTypes, 10 * 1024 * 1024);
-        console.log(fileData);
+
+        if(fileData.statusCode !== 200){
+          return response.status(fileData.statusCode).json(fileData);
+        }
+
         fileData.data.buffer=file.buffer;
-        const result=await this.mediaService.create(request, fileData.data);
+
+        if(request.type === 'profile'){
+            request.parent_id = req.user.id;
+        }
+
+        const result=await this.mediaService.create(request, fileData.data, req.user.id);
         return response.status(result.statusCode).json(result);
     }
 
@@ -113,14 +123,25 @@ export class MediaController {
       @Res() response:Response,
       @Param('mediaId') mediaId: string,
       @Body() request: UpdateMediaRequest,
-      @UploadedFile() file: Express.Multer.File
+      @UploadedFile() file: Express.Multer.File,
+      @Req() req,
     ) 
     {
       const allowedMimeTypes = this.allowedMimeTypeByParent(request.type) || []; 
       const fileData=await this.fileUploadService.handleFileUpload(file, allowedMimeTypes, 10 * 1024 * 1024);
+
+      if(fileData.statusCode !== 200){
+          return response.status(fileData.statusCode).json(fileData);
+      }
+
       fileData.data.buffer=file.buffer;
       request.id=mediaId;
-      const result=await this.mediaService.update(request, fileData.data);
+
+      if(request.type === 'profile'){
+        request.parent_id = req.user.id;
+      }
+
+      const result=await this.mediaService.update(request, fileData.data, req.user.id);
 
       if(result.statusCode !== 200){
         return response.status(result.statusCode).json(result);
