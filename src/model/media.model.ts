@@ -1,5 +1,5 @@
 export class CreateMediaRequest {
-  parent_id:string;
+  parent_id?:string;
   collection_name:string;
   type:string;
 }
@@ -13,7 +13,7 @@ export class MediaResponse {
 
 export class UpdateMediaRequest {
    id:string;
-   parent_id:string;
+   parent_id?:string;
    collection_name:string;
    type:string;
 }
