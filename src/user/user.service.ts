@@ -1,8 +1,8 @@
-import {  Inject, Injectable, HttpStatus } from '@nestjs/common';
+import {  Inject, Injectable, HttpStatus, forwardRef } from '@nestjs/common';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { PrismaService } from '@/common/prisma.service';
 import { ValidationService } from '@/common/validation.service';
-import {  AddressResponse, UpdatePasswordRequest, UpdateUserRequest, UserResponse } from '@/model/user.model';
+import {  AddressResponse, ProfilePicture, UpdatePasswordRequest, UpdateUserRequest, UserResponse } from '@/model/user.model';
 import {Logger} from 'winston';
 import { UserValidation } from '@/user/user.validation';
 import * as bcrypt from 'bcrypt';
@@ -11,6 +11,7 @@ import { ResponseData } from '@/types/response';
 import {responseValue, responseValueWithData} from '@/utils/response';
 import { ZodError } from 'zod';
 import { Role } from '@/auth/role.enum';
+import { MediaService } from '@/media/media.service';
 
 type UserWithAddresses = Prisma.UserGetPayload<{ include: { addresses: true } }>;
 
@@ -20,6 +21,8 @@ export class UserService {
         private readonly validationService:ValidationService,
         @Inject(WINSTON_MODULE_PROVIDER) private logger:Logger,
         private readonly prismaService:PrismaService,
+        @Inject(forwardRef(() => MediaService))
+        private readonly  mediaService:MediaService,
     ){
 
     }
@@ -37,12 +40,13 @@ export class UserService {
     }
 
 
-    private userResponse(data:any):UserResponse{
+    private userResponse(data:any, profilePicture?:ProfilePicture):UserResponse{
         return {
             name:data.name,
             username:data.username,
             email:data.email,
             addresses:  Array.isArray(data.addresses) ? data.addresses.map((a: any) => this.addressResponse(a)) : [],
+            profile_picture:profilePicture
         }
     }
 
@@ -67,7 +71,9 @@ export class UserService {
                 return responseValue(false, HttpStatus.CONFLICT,'Unauthorized');
             }
 
-            const userData:UserResponse=this.userResponse(checkUser);
+            const profilePicture=await this.mediaService.findOneByParent(id, 'profile_user');
+
+            const userData:UserResponse=this.userResponse(checkUser,profilePicture as ProfilePicture | undefined);
 
             return responseValueWithData(true, HttpStatus.OK, 'Successfully get profile', userData);
        }catch(error){

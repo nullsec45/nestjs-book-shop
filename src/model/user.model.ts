@@ -18,11 +18,17 @@ export class AddressResponse{
   is_default:string;
 }
 
+export class ProfilePicture{
+  url:string;
+  alt_text?:string;
+}
+
 export class UserResponse {
   name:string;
   username:string;
   email: string;
   addresses?:AddressResponse[];
+  profile_picture?:ProfilePicture;
 }
 
 export class LoginUserRequest {
