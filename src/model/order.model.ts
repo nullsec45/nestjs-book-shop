@@ -34,7 +34,7 @@ export class OrderSummaryResponse{
     discount_total:number;
     grand_total:number;
     user?:UserSummaryResponse;
-    address?:AddressResponse;
+    shipping_address?:AddressResponse;
 }
 
 export class BookSummaryResponse{
@@ -60,6 +60,6 @@ export class OrderItemResponse{
 export class SearchOrderItemRequest{
     page:number;
     size:number;
-    status:string;
-    orderBy:'asc' | 'desc';
+    status?:string;
+    orderBy?:'asc' | 'desc';
 }

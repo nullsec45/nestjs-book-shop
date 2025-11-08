@@ -22,7 +22,6 @@ import {
     OrderItemResponse,
     SearchOrderItemRequest,
 } from '@/model/order.model';
-// import { OrderStatus } from '@/model/order.model';
 import { ZodError } from 'zod';
 
 
@@ -71,46 +70,53 @@ export class OrderService {
         return order;
     }
 
-    private async recalculateOrderTotals(orderId:string){
-        const order=await this.prismaService.order.findUnique({
-            where:{id:orderId}
+    private async recalculateOrderTotals(orderId: string) {
+        const order = await this.prismaService.order.findUnique({
+            where: { id: orderId },
         });
         if (!order) return;
 
-        const items=await this.prismaService.orderItem.findMany({
-            where:{order_id:orderId},
+        const items = await this.prismaService.orderItem.findMany({
+            where: { order_id: orderId },
         });
 
-        const subtotal=items.reduce((sum, it) => {
-            return sum +Number(order.shipping_cost) - Number(it.line_total);
+        const subtotal = items.reduce((sum, it) => {
+            return sum + Number(it.line_total);  
         }, 0);
 
-        const grandTotal=subtotal + Number(order.shipping_cost) - Number(order.discount_total);
+        const grandTotal =
+            subtotal + Number(order.shipping_cost) - Number(order.discount_total);
 
         await this.prismaService.order.update({
-            where:{id:orderId},
-            data:{
-                subtotal,
-                grand_total:grandTotal
-            }
+            where: { id: orderId },
+            data: {
+            subtotal,
+            grand_total: grandTotal,
+            },
         });
     }
 
-    async checkOrderItemMustExists(id:string, userId:string):Promise<OrderItem>{  
-        const orderItem=await this.prismaService.orderItem.findUnique({
-            where: {
-                id,
-                order:{
-                    user_id:userId
-                }
-            },
-            include:{
-                order:true,
-                book:true,
-            }
-        });
+    async checkOrderItemMustExists(id:string, userId:string, type:string='check'):Promise<OrderItem>{  
+        const [order]= await this.prismaService.$transaction([
+            this.prismaService.orderItem.findFirst({
+                where: {
+                    id,
+                    order:{
+                        user_id:userId
+                    }
+                },
+                include:type === 'detail' ? {
+                    order:{
+                        include:{
+                            user:true
+                        },
+                    },
+                    book:true,
+                } : undefined
+            }),
+        ]);
 
-        return orderItem;
+        return order;
     }
 
     async isUnique(where: Prisma.OrderItemWhereInput): Promise<boolean> {
@@ -120,8 +126,6 @@ export class OrderService {
         });
         return !Boolean(found);
     }
-
-  
 
     private  toOrderItemResponse(
        item: any, 
@@ -144,14 +148,14 @@ export class OrderService {
                 }
                 : undefined;
 
-            const address:AddressResponse | undefined = item.order?.addresses ? 
+            const address:AddressResponse | undefined = item.order?.shipping_address ? 
             {
-                label:item.order.addresses.label,
-                recipient_name:item.order.addresses.recipient_name,
-                phone:item.order.addresses.phone,
-                line:item.order.addresses.line,
-                city:item.order.addresses.city,
-                province:item.order.address.province,
+                label:item.order.shipping_address.label,
+                recipient_name:item.order.shipping_address.recipient_name,
+                phone:item.order.shipping_address.phone,
+                line:item.order.shipping_address.line,
+                city:item.order.shipping_address.city,
+                province:item.order.shipping_address.province,
             } : undefined;
     
             const order: OrderSummaryResponse | undefined = item.order
@@ -165,7 +169,7 @@ export class OrderService {
                     discount_total: Number(item.order.discount_total),
                     grand_total: Number(item.order.grand_total),
                     user,
-                    address
+                    shipping_address:address
                 }
                 : undefined;
 
@@ -234,7 +238,12 @@ export class OrderService {
                 },
                 include:{
                     book:true,
-                    order:true,
+                    order:{
+                        include:{
+                            user:true,
+                            shipping_address:true,
+                        }
+                    },
                 }
             });
 
@@ -275,26 +284,27 @@ export class OrderService {
 
             const where:Prisma.OrderItemWhereInput={
                 order:{
-                    user_id:userId
-                }
+                    user_id:userId,
+                },
+                deleted_at:null
             }
 
             const [orderItems, total] = await this.prismaService.$transaction([
                 this.prismaService.orderItem.findMany({
-                where,
-                take: perPage,
-                skip,
-                orderBy:{
-                    created_at:searchRequest.orderBy ?? 'asc'
-                },
-                include:{
-                    order:{
-                        include:{
-                            user:true
-                        },
+                    where,
+                    take: perPage,
+                    skip,
+                    orderBy:{
+                        created_at:searchRequest.orderBy ?? 'asc'
                     },
-                    book:true,
-                }
+                    include:{
+                        order:{
+                            include:{
+                                user:true
+                            },
+                        },
+                        book:true,
+                    }
                 }),
                 this.prismaService.orderItem.count({where}),
             ]);
@@ -305,7 +315,7 @@ export class OrderService {
             return responseValueWithPaginate(
                 true,
                 HttpStatus.OK,
-                'Successfully Get Cart Items',
+                'Successfully Get Order Items',
                 items,
                 page,
                 perPage,
@@ -321,36 +331,15 @@ export class OrderService {
         userId:string,
     ){
         try{
-            const checkExist=await this.checkOrderItemMustExists(id, userId);
+            const checkExist=await this.checkOrderItemMustExists(id, userId,'detail');
 
             if(!checkExist){
-                return responseValue(false, HttpStatus.NOT_FOUND, 'Cart Not Found');
+                return responseValue(false, HttpStatus.NOT_FOUND, 'Order Not Found');
             }
 
-            const where:Prisma.OrderItemWhereInput={
-                id,
-                order:{
-                    user_id:userId
-                }
-            }
-
-            const [order]= await this.prismaService.$transaction([
-                this.prismaService.orderItem.findFirst({
-                where,
-                include:{
-                    order:{
-                        include:{
-                            user:true
-                        },
-                    },
-                    book:true,
-                }
-                }),
-            ]);
-
-
-            const orderData:OrderItemResponse=this.toOrderItemResponse(order);
-            return responseValueWithData(true, HttpStatus.CREATED, 'Successfully Created Data', orderData);
+            const orderData:OrderItemResponse=this.toOrderItemResponse(checkExist);
+            
+            return responseValueWithData(true, HttpStatus.CREATED, 'Successfully Get Data', orderData);
         }catch(error){
             return responseValue(false, HttpStatus.INTERNAL_SERVER_ERROR, error.message ?? 'Internal server error.');
         }
@@ -367,11 +356,10 @@ export class OrderService {
             );
 
             const orderItem = await this.checkOrderItemMustExists(
-            updateReq.id,
-            userId,
+                updateReq.id,
+                userId,
             );
 
-            // kalau book_id diganti, pastikan buku baru ada
             let priceSnapshot = Number(orderItem.price_snapshot);
             let titleSnapshot = orderItem.title_snapshot;
             if (updateReq.book_id && updateReq.book_id !== orderItem.book_id) {
@@ -385,19 +373,30 @@ export class OrderService {
             const lineTotal = priceSnapshot * updateReq.qty;
 
             const updated = await this.prismaService.orderItem.update({
-            where: { id: updateReq.id },
-            data: {
-                book_id: updateReq.book_id,
-                qty: updateReq.qty,
-                price_snapshot: priceSnapshot,
-                title_snapshot: titleSnapshot,
-            },
-            include: {
-                order: true,
-                book: true,
-            },
+                where: { 
+                    id: updateReq.id, 
+                    order:{
+                        user_id:userId
+                    }
+                },
+                data: {
+                    book_id: updateReq.book_id,
+                    qty: updateReq.qty,
+                    price_snapshot: priceSnapshot,
+                    title_snapshot: titleSnapshot,
+                    line_total:lineTotal
+                },
+                include: {
+                    order: true,
+                    book: true,
+                },
             });
 
+            await this.recalculateOrderTotals(updated.order_id);
+
+            const orderData:OrderItemResponse=this.toOrderItemResponse(updated);
+
+            return responseValueWithData(true, HttpStatus.OK, 'Successfully Updated Data',orderData);
         }catch(error){
             if (error instanceof ZodError) {
                 const details = error.issues.map(i => ({
@@ -423,19 +422,22 @@ export class OrderService {
         userId:string,
     ){
         try{
-            const checkCartMustExists=await this.checkOrderItemMustExists(id, userId);
+            const checkOrderItem=await this.checkOrderItemMustExists(id, userId);
 
-            if (!checkCartMustExists) {
-                return responseValue(false, HttpStatus.NOT_FOUND, 'Cart Not Found');
+            if (!checkOrderItem) {
+                return responseValue(false, HttpStatus.NOT_FOUND, 'Order Not Found');
             }
 
-            await this.prismaService.cartItem.delete({
+            await this.prismaService.orderItem.update({
                 where:{
                     id:id,
-                    cart:{
+                    order:{
                         user_id:userId
                     }
                 },
+                data:{
+                    deleted_at:new Date()
+                }
             });
 
             return responseValue(true, HttpStatus.OK, 'Successfully Deleted Data');
