@@ -44,7 +44,7 @@ export class OrderItemValidation {
     static readonly SEARCH=z.object({
         page:z.number().min(1).positive(),
         size:z.number().min(1).positive(),
-        status:z.enum(["CREATED","PAID","FAILED","SHIPPED","DELIVERED","CANCELLED"]),
-        orderBy:z.enum(['asc','desc']),
+        status:z.enum(["CREATED","PAID","FAILED","SHIPPED","DELIVERED","CANCELLED"]).optional(),
+        orderBy:z.enum(['asc','desc']).optional(),
     });
 }

@@ -34,7 +34,7 @@ import { Role } from "@/auth/role.enum";
 @UseGuards(AuthenticatedGuard)
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(Role.CUSTOMER)
-@Controller('carts')
+@Controller('orders')
 export class OrderController {
     constructor(
        private readonly orderService:OrderService
@@ -97,7 +97,7 @@ export class OrderController {
         @Query('page',new ParseIntPipe({optional:true})) page:number | undefined,
         @Query('size',new ParseIntPipe({optional:true})) size:number | undefined,
         @Query('status') status:string | undefined,
-        @Query('orderBy') orderBy: | undefined,
+        @Query('orderBy') orderBy: 'asc' | 'desc' | undefined,
         @Req() req,
     ){
         const request:SearchOrderItemRequest={
