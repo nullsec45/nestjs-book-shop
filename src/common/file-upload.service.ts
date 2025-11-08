@@ -52,10 +52,9 @@ export class FileUploadService {
 
     async handleFileDelete(fileName:string){
         try{
-            // console.log(fileName);
-            // const filePath = path.join(this.configService.get<string>('PATH_FILE'), fileName);
+ 
             if (fs.existsSync(fileName)) {
-                fs.unlinkSync(fileName); // Menghapus file
+                fs.unlinkSync(fileName);
             } else {
                 return responseValue(false, HttpStatus.NOT_FOUND, "File Not Found");
             }
