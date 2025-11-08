@@ -30,9 +30,9 @@ import { UserModule } from './user/user.module';
 import { CartController } from './cart/cart.controller';
 import { CartService } from './cart/cart.service';
 import { CartModule } from './cart/cart.module';
-// import { OrderController } from './order/order.controller';
-// import { OrderService } from './order/order.service';
-// import { OrderModule } from './order/order.module';
+import { OrderController } from './order/order.controller';
+import { OrderService } from './order/order.service';
+import { OrderModule } from './order/order.module';
 import { FileUploadService } from './common/file-upload.service';
 import { MediaModule } from './media/media.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
@@ -81,7 +81,7 @@ import * as path from 'path';
     AddressController, 
     UserController, 
     CartController, 
-    // OrderController, 
+    OrderController, 
   ],
   providers: [
     AppService, 
@@ -95,7 +95,7 @@ import * as path from 'path';
     AddressService, 
     UserService, 
     CartService, 
-    // OrderService,
+    OrderService,
     FileUploadService,
     // Reflector,
     //  { provide: APP_GUARD, useClass: JwtAuthGuard}, 
