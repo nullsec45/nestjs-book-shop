@@ -9,8 +9,7 @@ import { Roles } from "@/auth/roles.decorator";
 import { Role } from "@/auth/role.enum";
 
 
-@UseGuards(AuthenticatedGuard)
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(AuthenticatedGuard, JwtAuthGuard, RolesGuard)
 @Controller('authors')
 export class AuthorController {
     constructor(

@@ -10,6 +10,10 @@ import { LocalStrategy } from './local.strategy';
 import 'dotenv/config';
 import { RolesGuard } from './roles.guard';
 import { UserModule } from '@/user/user.module';
+import { UserService } from '@/user/user.service';
+import { forwardRef } from '@nestjs/common';
+import { MediaModule } from '@/media/media.module';
+import { JwtService } from '@nestjs/jwt';
 
 @Module({
    imports: [
@@ -22,9 +26,19 @@ import { UserModule } from '@/user/user.module';
                 }
             }
         ),
-        UserModule
+        forwardRef(() => UserModule),  
+        forwardRef(() => MediaModule),
     ],
   controllers: [AuthController],
-  providers: [AuthService, RolesGuard, LocalStrategy, JwtStrategy,SessionSerializer],
+  providers: [
+    AuthService, 
+    RolesGuard, 
+    LocalStrategy, 
+    JwtStrategy,
+    SessionSerializer,
+    UserService,
+    JwtService, 
+   ],
+   exports:[RolesGuard, JwtService, AuthService]
 })
 export class AuthModule {}

@@ -1,40 +1,19 @@
 import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
-import { AuthModule } from './auth/auth.module';
-import { JwtService } from '@nestjs/jwt/dist';
+import { AppController } from '@/app.controller';
+import { AppService } from '@/app.service';
+import { AuthModule } from '@/auth/auth.module';
 import { ConfigModule } from '@nestjs/config';
-import { CommonModule } from './common/common.module';
-import { AuthService } from './auth/auth.service';
-import { AuthorController } from './author/author.controller';
-import { AuthorService } from './author/author.service';
-import { AuthorModule } from './author/author.module';
-import { CategoryController } from './category/category.controller';
-import { CategoryService } from './category/category.service';
-import { CategoryModule } from './category/category.module';
-import { BookController } from './book/book.controller';
-import { BookService } from './book/book.service';
-import { BookModule } from './book/book.module';
-import { BookAuthorController } from './book-author/book-author.controller';
-import { BookAuthorService } from './book-author/book-author.service';
-import { BookAuthorModule } from './book-author/book-author.module';
-import { BookCategoryController } from './book-category/book-category.controller';
-import { BookCategoryService } from './book-category/book-category.service';
-import { BookCategoryModule } from './book-category/book-category.module';
-import { AddressController } from './address/address.controller';
-import { AddressService } from './address/address.service';
-import { AddressModule } from './address/address.module';
-import { UserController } from './user/user.controller';
-import { UserService } from './user/user.service';
-import { UserModule } from './user/user.module';
-import { CartController } from './cart/cart.controller';
-import { CartService } from './cart/cart.service';
-import { CartModule } from './cart/cart.module';
-import { OrderController } from './order/order.controller';
-import { OrderService } from './order/order.service';
-import { OrderModule } from './order/order.module';
-import { FileUploadService } from './common/file-upload.service';
-import { MediaModule } from './media/media.module';
+import { CommonModule } from '@/common/common.module';
+import { AuthorModule } from '@/author/author.module';
+import { CategoryModule } from '@/category/category.module';
+import { BookModule } from '@/book/book.module';
+import { BookAuthorModule } from '@/book-author/book-author.module';
+import { BookCategoryModule } from '@/book-category/book-category.module';
+import { AddressModule } from '@/address/address.module';
+import { UserModule } from '@/user/user.module';
+import { CartModule } from '@/cart/cart.module';
+import { OrderModule } from '@/order/order.module';
+import { MediaModule } from '@/media/media.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { ConfigService } from '@nestjs/config';
 import * as path from 'path';
@@ -44,7 +23,7 @@ import * as path from 'path';
     AuthModule,
     CommonModule,
     ConfigModule.forRoot({
-      isGlobal: true, // Agar ConfigService bisa diakses di seluruh aplikasi
+      isGlobal: true,
     }),
     AuthorModule,
     CategoryModule,
@@ -54,7 +33,7 @@ import * as path from 'path';
     AddressModule,
     UserModule,
     CartModule,
-    // OrderModule,
+    OrderModule,
     MediaModule, 
     ServeStaticModule.forRootAsync({
       imports: [ConfigModule],
@@ -64,8 +43,8 @@ import * as path from 'path';
         const rootPath = path.isAbsolute(dir) ? dir : path.resolve(process.cwd(), dir);
         return [
           {
-            rootPath,                // folder fisik yang di-serve
-            serveRoot: '/uploads/',  // URL prefix untuk mengakses
+            rootPath,                
+            serveRoot: '/uploads/', 
           },
         ];
       },
@@ -73,33 +52,9 @@ import * as path from 'path';
   ],
   controllers: [
     AppController, 
-    AuthorController, 
-    CategoryController, 
-    BookController, 
-    BookAuthorController, 
-    BookCategoryController, 
-    AddressController, 
-    UserController, 
-    CartController, 
-    OrderController, 
   ],
   providers: [
     AppService, 
-    AuthService,  
-    JwtService, 
-    AuthorService, 
-    CategoryService, 
-    BookService, 
-    BookAuthorService, 
-    BookCategoryService, 
-    AddressService, 
-    UserService, 
-    CartService, 
-    OrderService,
-    FileUploadService,
-    // Reflector,
-    //  { provide: APP_GUARD, useClass: JwtAuthGuard}, 
-    // {provide:APP_GUARD, useClass:RolesGuard}
   ],
 })
 export class AppModule {}

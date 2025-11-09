@@ -17,7 +17,7 @@ import { AuthenticatedGuard } from '@/auth/authenticated.guard';
 import { JwtAuthGuard } from '@/auth/jwt-auth.guard';
 import { Response } from 'express'
 
-@UseGuards(AuthenticatedGuard)
+// @UseGuards(AuthenticatedGuard)
 @UseGuards(JwtAuthGuard)
 @Controller('address')
 export class AddressController {

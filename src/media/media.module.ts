@@ -9,6 +9,7 @@ import { MediaController } from './media.controller';
 import { MediaService } from './media.service';
 import { BookModule } from '@/book/book.module';
 import { UserModule } from '@/user/user.module';
+import { AuthModule } from '@/auth/auth.module';
 
 @Module({
     imports: [

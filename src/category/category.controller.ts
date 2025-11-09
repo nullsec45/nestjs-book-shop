@@ -6,9 +6,9 @@ import { JwtAuthGuard } from '@/auth/jwt-auth.guard';
 import { Response } from 'express'
 import { Roles } from "@/auth/roles.decorator";
 import { Role } from "@/auth/role.enum";
+import { RolesGuard } from "@/auth/roles.guard";
 
-@UseGuards(AuthenticatedGuard)
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('categories')
 export class CategoryController {
     constructor(
