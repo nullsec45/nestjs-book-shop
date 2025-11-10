@@ -3,22 +3,30 @@ import { AuthService } from '@/auth/auth.service';
 import { AuthenticatedGuard } from '@/auth/authenticated.guard';
 import { JwtAuthGuard } from '@/auth/jwt-auth.guard';
 import { LoginUserRequest, RegisterUserRequest, UpdateUserRequest, UserResponse } from '@/model/user.model';
-import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
-import {Logger} from 'winston';
 
 import { Response } from 'express'
+import { LogService } from '@/common/logger.service';
 
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) { }
+  constructor(
+    private readonly authService: AuthService,
+    private readonly logger:LogService,
+  ) { }
 
   @Post('/register')
     async register(
       @Body() request:RegisterUserRequest,
       @Res() response:Response,
+      @Req() req,
     ){
       const result=await this.authService.register(request);
+      this.logger.module('access').info({
+        url:req.url,
+        method:req.method,
+        http_status:result.statusCode
+      });
 
       return response.status(result.statusCode).json(result);
     }
@@ -29,8 +37,15 @@ export class AuthController {
   async login(
     @Body() request:LoginUserRequest,
     @Res() response:Response,
+    @Req() req,
   ){
     const result=await this.authService.login(request);
+    
+    this.logger.module('access').info(result.message,{
+        url:req.url,
+        method:req.method,
+        http_status:result.statusCode
+    });
 
     return response.status(result.statusCode).json(result);
   }
