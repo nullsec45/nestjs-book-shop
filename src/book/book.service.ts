@@ -2,7 +2,6 @@ import { Injectable, Inject,HttpStatus,forwardRef } from '@nestjs/common';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { PrismaService } from '@/common/prisma.service';
 import { ValidationService } from '@/common/validation.service';
-import {Logger} from 'winston';
 import { BookResponse, CreateBookRequest, SearchBookRequest, UpdateBookRequest } from '@/model/book.model';
 import { Book, Category, Prisma, Author } from "@prisma/client";
 import { BookValidation } from '@/book/book.validation';
@@ -15,6 +14,7 @@ import { CategoryResponse } from '@/model/category.model';
 import { AuthorResponse } from '@/model/author.model';
 import { MediaService } from '@/media/media.service';
 import { MediaResponse } from '@/model/media.model';
+import { LogService } from '@/common/logger.service';
 
 type BookWithCategories = Prisma.BookGetPayload<{ 
     include: { 
@@ -25,15 +25,15 @@ type BookWithCategories = Prisma.BookGetPayload<{
 }>;
 
 @Injectable()
-export class BookService {
+export class BookService  {
     constructor(
         private readonly validationService:ValidationService,
-        @Inject(WINSTON_MODULE_PROVIDER) private logger:Logger,
+        // @Inject(WINSTON_MODULE_PROVIDER) private readonly logger:Logger,
         private readonly prismaService:PrismaService,
         @Inject(forwardRef(() => MediaService))
         private readonly mediaService: MediaService,
+        private readonly logger: LogService,
     ){
-    
     }
 
     private categoryResponse(data:Category):CategoryResponse{
@@ -114,10 +114,24 @@ export class BookService {
             );
         
             if (!(await this.isUnique({ AND:[{title: request.title},{deleted_at:null}]}  ))) {
+                this.logger.warn('book.create.conflict', {
+                    module: 'book',
+                    action: 'create',
+                    reason: 'title already exists',
+                    title: request.title,
+                });
+                
                 return responseValue(false, HttpStatus.CONFLICT, 'Book Already in Database');
             }
 
             if (!(await this.isUnique({ AND:[{isbn: request.isbn},{deleted_at:null}]}  ))) {
+                this.logger.warn('book.create.conflict', {
+                    module: 'book',
+                    action: 'create',
+                    reason: 'isbn already exists',
+                    isbn: request.isbn,
+                });
+
                 return responseValue(false, HttpStatus.CONFLICT, 'Book Already in Database');
             }
 
@@ -127,7 +141,17 @@ export class BookService {
                 }
             });
 
+            this.logger.error('book.create.success', {
+                module: 'book',
+                action: 'create',
+                book_id: book.id,
+                title: book.title,
+                isbn: book.isbn,
+                slug: book.slug,
+            });
+
             const bookData=this.bookResponse(book);
+            
 
             return responseValueWithData(true, HttpStatus.CREATED, 'Successfully Created Data', bookData);
         }catch(error){
@@ -146,12 +170,20 @@ export class BookService {
                 } as ResponseData;
             }
 
+            this.logger.error('book.create.error', {
+                module: 'book',
+                action: 'create',
+                error: error.message,
+                stack: error.stack,
+            });
+
             return responseValue(false, HttpStatus.INTERNAL_SERVER_ERROR, error.message ?? 'Internal server error.');
         }
     }
 
     async search(request: SearchBookRequest): Promise<ResponseData> {
         try{
+
             const searchRequest: SearchBookRequest = this.validationService.validate(BookValidation.SEARCH, request);
 
             const filters: any[] = [];
@@ -164,13 +196,6 @@ export class BookService {
                 ],
                 });
             }
-
-            if (searchRequest.title) {
-                filters.push({
-                title: { contains: searchRequest.title },
-                });
-            }
-
             const perPage = Math.max(1, Number(searchRequest.size) || 10);
             const page = Math.max(1, Number(searchRequest.page) || 1);
             const skip = (page - 1) * perPage;
@@ -211,11 +236,20 @@ export class BookService {
                     // orderBy: { created_at: "desc" },
                 }),
                 this.prismaService.book.count({
-                    where: { AND: filters },
+                    where: { AND: filters, deleted_at:null },
                 }),
             ]);
 
             const items = books.map((book) => this.bookResponse(book));
+
+            this.logger.log('book.search', {
+                module: 'book',
+                action: 'search',
+                keyword: searchRequest.title ?? null,
+                page,
+                perPage,
+                total,
+            });
 
             return responseValueWithPaginate(
                 true,
@@ -227,6 +261,13 @@ export class BookService {
                 total
             );
         }catch(error){
+            this.logger.error('book.search.error', {
+                module: 'book',
+                action: 'search',
+                error: error.message,
+                stack: error.stack,
+            });
+
             return responseValue(false, HttpStatus.INTERNAL_SERVER_ERROR, error.message ?? 'Internal server error.');
         }
     }
