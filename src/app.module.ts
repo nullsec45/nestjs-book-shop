@@ -18,6 +18,7 @@ import { ServeStaticModule } from '@nestjs/serve-static';
 import { ConfigService } from '@nestjs/config';
 import * as path from 'path';
 import { RequestLoggerMiddleware } from './middleware/logger.middleware';
+import { VoucherModule } from './voucher/voucher.module';
 
 @Module({
   imports: [
@@ -49,14 +50,14 @@ import { RequestLoggerMiddleware } from './middleware/logger.middleware';
           },
         ];
       },
-    }),
-
+    }), 
+    VoucherModule,
   ],
   controllers: [
-    AppController, 
+    AppController,
   ],
   providers: [
-    AppService, 
+    AppService,
   ],
 })
 export class AppModule {
