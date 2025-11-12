@@ -256,6 +256,7 @@ model VoucherDiscount {
   discount    Int
   upper_limit Decimal  @default(0) @db.Decimal(12, 2)
   description String   @db.Text
+  all_user    Boolean @default(false)
   start_date  DateTime @default(now()) @db.Date
   end_date    DateTime @db.Date
 
