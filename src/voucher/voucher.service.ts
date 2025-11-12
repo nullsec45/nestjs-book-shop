@@ -1,8 +1,6 @@
 import { Injectable, Inject, HttpStatus } from '@nestjs/common';
-import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { PrismaService } from '@/common/prisma.service';
 import { ValidationService } from '@/common/validation.service';
-import {Logger} from 'winston';
 import { 
     CreateVoucherRequest, 
     UpdateVoucherRequest, 
@@ -51,6 +49,7 @@ export class VoucherService {
             discount:voucher.discount,
             upper_limit:voucher.upper_limit ?  Number(voucher.upper_limit) : 0,
             description:voucher.description,
+            all_user:voucher.all_user,
             start_date:voucher.start_date,
             end_date:voucher.end_date,
         }
@@ -85,6 +84,9 @@ export class VoucherService {
             this.logger.error('voucher.create.success', {
                 module: 'voucher',
                 action: 'create',
+                payload:{
+                    ...createRequest,
+                }
             });
 
             const voucherData=this.voucherResponse(voucher);
@@ -187,6 +189,13 @@ export class VoucherService {
             const voucher=await this.checkVoucherMustExists(id);
 
             if (!voucher) {
+                this.logger.warn('voucher.get.error', {
+                    module: 'voucher',
+                    action: 'get',
+                    reason: 'Voucher not found',
+                    id
+                });
+                
                 return responseValue(false, HttpStatus.NOT_FOUND, 'Voucher Not Found');
             }
         
@@ -195,6 +204,7 @@ export class VoucherService {
             this.logger.log('voucher.get.success', {
                 module: 'book',
                 action: 'get',
+                id,
             });
 
             return responseValueWithData(true, HttpStatus.OK, 'Successfully Get Data', voucherData);
@@ -282,6 +292,13 @@ export class VoucherService {
             const checkVoucher=await this.checkVoucherMustExists(id);
 
             if (!checkVoucher) {
+                this.logger.warn('voucher.get.error', {
+                    module: 'voucher',
+                    action: 'get',
+                    reason: 'Voucher not found',
+                    id
+                });
+
                 return responseValue(false, HttpStatus.NOT_FOUND, 'Voucher Not Found');
             }
 
@@ -296,6 +313,13 @@ export class VoucherService {
 
             return responseValue(true, HttpStatus.OK, 'Successfully Deleted Data');
         }catch(error){
+            this.logger.error('voucher.remove.error', {
+                module: 'voucher',
+                action: 'remove',
+                error: error.message,
+                stack: error.stack,
+            });
+
             return responseValue(false, HttpStatus.INTERNAL_SERVER_ERROR, error.message ?? 'Internal server error.');
         }
     }

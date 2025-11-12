@@ -3,6 +3,7 @@ export class CreateVoucherRequest {
   discount:number;
   upper_limit?:number;
   description:string;
+  all_user:boolean;
   start_date:Date;
   end_date:Date;
 }
@@ -13,6 +14,7 @@ export class VoucherResponse {
   discount:number;
   upper_limit?:number;
   description:string;
+  all_user:boolean;
   start_date:Date;
   end_date:Date;
 }
@@ -23,6 +25,7 @@ export class UpdateVoucherRequest {
    discount:number;
    upper_limit?:number;
    description:string;
+   all_user:boolean;
    start_date:Date;
    end_date:Date;
 }

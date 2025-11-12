@@ -6,6 +6,7 @@ export class VoucherValidation {
         discount:z.number().max(100),
         upper_limit:z.number().optional(),
         description:z.string(),
+        all_user:z.boolean(),
         start_date: z.coerce.date(),
         end_date: z.coerce.date(),
     }).refine(
@@ -22,6 +23,7 @@ export class VoucherValidation {
         discount:z.number().max(100),
         upper_limit:z.number().optional(),
         description:z.string(),
+        all_user:z.boolean(),
         start_date: z.coerce.date(),
         end_date: z.coerce.date(),
     }) .refine(
