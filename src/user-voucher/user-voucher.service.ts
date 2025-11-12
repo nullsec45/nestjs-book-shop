@@ -236,6 +236,13 @@ export class UserVoucherService {
             const checkUserVoucher=await this.checkUserVoucherMustExists(id, userId);
 
             if(!checkUserVoucher){
+                this.logger.warn('user-voucher.create.error', {
+                    module: 'user-voucher',
+                    action: 'create',
+                    reason: 'User voucher not found',
+                    id,
+                });
+
                 return responseValue(false,HttpStatus.NOT_FOUND,"User Voucher Not Found");
             }
 
@@ -298,12 +305,26 @@ export class UserVoucherService {
             const voucher=await this.voucherService.checkVoucherMustExists(updateRequest.voucher_id);
 
             if(!voucher){
+                this.logger.warn('user-voucher.update.error', {
+                    module: 'user-voucher',
+                    action: 'update',
+                    reason: 'Voucher not found',
+                    voucher_id:updateRequest.voucher_id,
+                });
+
                 return responseValue(false,HttpStatus.NOT_FOUND, "Voucher Not Found");
             }
 
             const checkUserVoucher=await this.checkUserVoucherMustExists(updateRequest.id);
 
             if(!checkUserVoucher){
+                this.logger.warn('user-voucher.update.error', {
+                    module: 'user-voucher',
+                    action: 'update',
+                    reason: 'User voucher not found',
+                    id:updateRequest.id,
+                });
+
                 return responseValue(false,HttpStatus.NOT_FOUND,"User Voucher Not Found");
             }
 
@@ -347,6 +368,14 @@ export class UserVoucherService {
             const checkUserVoucher=await this.checkUserVoucherMustExists(id);
 
             if (!checkUserVoucher) {
+                this.logger.warn('user-voucher.update.error', {
+                    module: 'user-voucher',
+                    action: 'remove',
+                    reason: 'Voucher not found',
+                    id,
+                });
+
+
                 return responseValue(false, HttpStatus.NOT_FOUND, 'User Voucher Not Found');
             }
 
