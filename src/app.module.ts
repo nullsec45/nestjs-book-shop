@@ -19,6 +19,7 @@ import { ConfigService } from '@nestjs/config';
 import * as path from 'path';
 import { RequestLoggerMiddleware } from './middleware/logger.middleware';
 import { VoucherModule } from './voucher/voucher.module';
+import { UserVoucherModule } from './user-voucher/user-voucher.module';
 
 @Module({
   imports: [
@@ -51,7 +52,7 @@ import { VoucherModule } from './voucher/voucher.module';
         ];
       },
     }), 
-    VoucherModule,
+    VoucherModule, UserVoucherModule,
   ],
   controllers: [
     AppController,
