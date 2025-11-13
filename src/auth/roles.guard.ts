@@ -34,14 +34,21 @@ export class RolesGuard implements CanActivate{
 
         const userRole=await this.userService.getRoleByUserId(user.id);
 
+        req.user = {
+            role: userRole as Role,
+        };
+
         const allowed=required.includes(userRole as Role);
 
-        this.logger.module('activity').warn('forbidden.access', {
-            url: req.url,
-            method: req.method,
-            reason: 'Insufficient role',
-            user_id:req.user.id,
-        },'warn');
+        if(!allowed){
+            this.logger.module('activity').warn('forbidden.access', {
+                url: req.url,
+                method: req.method,
+                reason: 'Insufficient role',
+                user_id:req.user.id,
+            },'warn');
+        }
+
         
         if(!allowed) throw new ForbiddenException('Insufficient role');
         return true;
