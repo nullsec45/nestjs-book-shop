@@ -15,7 +15,7 @@ import { VoucherService } from '@/voucher/voucher.service';
 import { Prisma,  UserVoucher } from '@prisma/client';
 import { ZodError } from 'zod';
 import { isUUID } from '@/utils/is-uuid';
-
+import { UserService } from '@/user/user.service';
 
 @Injectable()
 export class UserVoucherService {
@@ -24,6 +24,7 @@ export class UserVoucherService {
         private readonly logger:LogService,
         private readonly prismaService:PrismaService,
         private readonly voucherService:VoucherService,
+        private readonly userService:UserService,
     ){}
 
     async checkUserVoucherMustExists(id:string, userId?:string){
@@ -117,6 +118,19 @@ export class UserVoucherService {
                 });
 
                 return responseValue(false,HttpStatus.NOT_FOUND, "Voucher Not Found");
+            }
+
+            const user=await this.userService.checkUserMustExists(createRequest.user_id);
+
+            if(!user){
+                this.logger.warn('user-voucher.create.error', {
+                    module: 'user-voucher',
+                    action: 'create',
+                    reason: 'User not found',
+                    user_id: createRequest.user_id,
+                });
+
+                return responseValue(false,HttpStatus.NOT_FOUND, "User Not Found");
             }
 
             if (!(await this.isUnique({ AND:[{user_id: createRequest.user_id,},{voucher_id:createRequest.voucher_id},{deleted_at:null}]}  ))) {
