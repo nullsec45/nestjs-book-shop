@@ -22,9 +22,9 @@ import { Role } from "@/auth/role.enum";
 import { Roles } from "@/auth/roles.decorator";
 import { RolesGuard } from "@/auth/roles.guard";
 import { LogService } from "@/common/logger.service";
+import { CurrentRole } from "@/auth/current-role.decorator";
 
 @UseGuards(AuthenticatedGuard, JwtAuthGuard, RolesGuard)
-@Roles(Role.ADMIN)
 @Controller('vouchers')
 export class VoucherController {
     constructor(
@@ -34,6 +34,7 @@ export class VoucherController {
         
     }
 
+    @Roles(Role.ADMIN)
     @Post()
     @HttpCode(201)
     async create(
@@ -58,6 +59,7 @@ export class VoucherController {
     async search(
         @Res() response:Response,
         @Req() req,
+        @CurrentRole() role:Role,
         @Query('discount', new ParseIntPipe({optional:true})) discount?:number,
         @Query('upper_limit', new ParseIntPipe({optional:true})) upper_limit?:number,
         @Query('page',new ParseIntPipe({optional:true})) page?:number,
@@ -70,7 +72,10 @@ export class VoucherController {
             size:size || 10
         }
 
-        const result=await this.voucherService.search(request);
+        const result=await this.voucherService.search(
+            request,
+            role !== 'ADMIN' ? req.user.id : null
+        );
 
         this.logger.module('access').info(result.message,{
             url:req.url,
@@ -82,14 +87,18 @@ export class VoucherController {
         return response.status(result.statusCode).json(result);
     }
 
-    @Get('/:param')
+    @Get('/:id')
     @HttpCode(200)
     async get(
         @Res() response:Response,
-        @Param('param') param:string,
+        @Param('id') id:string,
         @Req() req,
+        @CurrentRole() role:Role,
     ){
-        const result=await this.voucherService.get(param);
+        const result=await this.voucherService.get(
+            id,
+            role !== 'ADMIN' ? req.user.id : null
+        );
 
         return response.status(result.statusCode).json(result);
     }

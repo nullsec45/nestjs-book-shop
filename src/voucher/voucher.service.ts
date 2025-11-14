@@ -24,11 +24,30 @@ export class VoucherService {
 
     }
 
-    async checkVoucherMustExists(id:string){
-        const voucher=await this.prismaService.voucherDiscount.findUnique({
-            where:{
-                id:id
+    async checkVoucherMustExists(id:string, userId?:string, type:string='check'){
+        const where = userId && type === 'detail'
+            ? {
+                AND:[
+                    {
+                       OR:[
+                            {
+                                id,
+                               all_user: true ,
+                            },
+                            {
+                                id,
+                                userVoucher: { some: { user_id: userId } },
+                                deleted_at: null,
+                            }
+                       ] 
+                    }
+                ]
             }
+            : { id,  deleted_at: null };
+
+        const voucher = await this.prismaService.voucherDiscount.findFirst({
+            where,
+            include: userId && type === 'detail' ? { userVoucher: true } : undefined
         });
 
         return voucher;
@@ -119,9 +138,8 @@ export class VoucherService {
         }
     }
 
-    async search(request: SearchVoucherRequest):Promise<ResponseData> {
+    async search(request: SearchVoucherRequest, userId?:string):Promise<ResponseData> {
         try{
-        
             const searchRequest: SearchVoucherRequest = this.validationService.validate(VoucherValidation.SEARCH, request);
 
             const filters: any[] = [];
@@ -135,17 +153,37 @@ export class VoucherService {
             const page = Math.max(1, Number(searchRequest.page) || 1);
             const skip = (page - 1) * perPage;
 
+            const where: Prisma.VoucherDiscountWhereInput = userId ? {
+                AND: [
+                    ...filters,
+                    { deleted_at: null },
+                    {
+                        OR: [
+                            { 
+                                all_user: true 
+                            },
+                            {
+                                userVoucher: { some: { user_id: userId } }
+                            },
+                        ],
+                    }
+                ]
+            } : 
+            {
+                AND: [
+                    ...filters,
+                    { deleted_at: null }
+                ]
+            }
+
             const [vouchers, total] = await Promise.all([
                 this.prismaService.voucherDiscount.findMany({
-                    where: { 
-                        AND: filters,
-                        deleted_at: null
-                    },
+                    where,
                     take: perPage,
                     skip,
                 }),
                 this.prismaService.voucherDiscount.count({
-                    where: { AND: filters, deleted_at:null },
+                    where,
                 }),
             ]);
 
@@ -184,9 +222,9 @@ export class VoucherService {
         }
     }
 
-    async get(id:string):Promise<ResponseData>{
+    async get(id:string, userId?:string):Promise<ResponseData>{
         try{
-            const voucher=await this.checkVoucherMustExists(id);
+            const voucher=await this.checkVoucherMustExists(id, userId,'detail');
 
             if (!voucher) {
                 this.logger.warn('voucher.get.error', {
