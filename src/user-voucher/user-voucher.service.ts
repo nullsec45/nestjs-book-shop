@@ -27,17 +27,13 @@ export class UserVoucherService {
         private readonly userService:UserService,
     ){}
 
-    async checkUserVoucherMustExists(id:string, userId?:string){
-        const where=userId ? { 
-            id,
-            user_id:userId,
-            deleted_at:null,
-        } : {
-            id,
-            deleted_at:null,
-        };
-
-        const userVoucher=await this.prismaService.userVoucher.findFirst({ where });
+    async checkUserVoucherMustExists(id:string){
+        const userVoucher=await this.prismaService.userVoucher.findFirst({
+            where:{
+                id,
+                deleted_at:null,
+            }
+        });
 
         return userVoucher;
     }
@@ -191,95 +187,97 @@ export class UserVoucherService {
        }
     }
 
-    async search(request:SearchUserVoucherRequest, userId?:string):Promise<ResponseData>{
-        try{
-            const searchRequest: SearchUserVoucherRequest = this.validationService.validate(UserVoucherValidation.SEARCH, request);
+    // async search(request:SearchUserVoucherRequest):Promise<ResponseData>{
+    //     try{
+    //         const searchRequest: SearchUserVoucherRequest = this.validationService.validate(UserVoucherValidation.SEARCH, request);
 
-            const perPage = Math.max(1, Number(searchRequest.size) || 10);
-            const page = Math.max(1, Number(searchRequest.page) || 1);
-            const skip = (page - 1) * perPage;
+    //         const perPage = Math.max(1, Number(searchRequest.size) || 10);
+    //         const page = Math.max(1, Number(searchRequest.page) || 1);
+    //         const skip = (page - 1) * perPage;
 
-            const where = userId ? { user_id:userId, deleted_at:null } : { deleted_at:null };
+    //         const [userVouchers, total] = await Promise.all([
+    //             this.prismaService.userVoucher.findMany({
+    //                 where : { 
+    //                     deleted_at:null 
+    //                 },
+    //                 take: perPage,
+    //                 skip,
+    //             }),
+    //             this.prismaService.userVoucher.count({
+    //                 where:{ 
+    //                     deleted_at:null 
+    //                 },
+    //             }),
+    //         ]);
 
-            const [userVouchers, total] = await Promise.all([
-                this.prismaService.userVoucher.findMany({
-                    where,
-                    take: perPage,
-                    skip,
-                }),
-                this.prismaService.userVoucher.count({
-                    where,
-                }),
-            ]);
+    //         const items = userVouchers.map((usvoucher) => this.userVoucherResponse(usvoucher));
 
-            const items = userVouchers.map((usvoucher) => this.userVoucherResponse(usvoucher));
+    //         this.logger.log('user-voucher.search.success', {
+    //             module: 'user-voucher',
+    //             action: 'search',
+    //             query_params:{
+    //                 page,
+    //                 perPage,
+    //                 total,
+    //             }
+    //         });
 
-            this.logger.log('user-voucher.search.success', {
-                module: 'user-voucher',
-                action: 'search',
-                query_params:{
-                    page,
-                    perPage,
-                    total,
-                }
-            });
+    //         return responseValueWithPaginate(
+    //             true,
+    //             HttpStatus.OK,
+    //             "Successfully Get Data User Vouchers",
+    //             items,
+    //             page,
+    //             perPage,
+    //             total
+    //         );
+    //     }catch(error){
+    //         this.logger.error('user-voucher.search.error', {
+    //             module: 'user-voucher',
+    //             action: 'search',
+    //             error: error.message,
+    //             stack: error.stack,
+    //         });
 
-            return responseValueWithPaginate(
-                true,
-                HttpStatus.OK,
-                "Successfully Get Data User Vouchers",
-                items,
-                page,
-                perPage,
-                total
-            );
-        }catch(error){
-            this.logger.error('user-voucher.search.error', {
-                module: 'user-voucher',
-                action: 'search',
-                error: error.message,
-                stack: error.stack,
-            });
+    //         return responseValue(false, HttpStatus.INTERNAL_SERVER_ERROR, error.message ?? 'Internal server error.');
+    //     }
+    // }
 
-            return responseValue(false, HttpStatus.INTERNAL_SERVER_ERROR, error.message ?? 'Internal server error.');
-        }
-    }
+    // async get(id:string):Promise<ResponseData>{
+    //     try{
+    //         const checkUserVoucher=await this.checkUserVoucherMustExists(id);
 
-    async get(id:string, userId?:string):Promise<ResponseData>{
-        try{
-            const checkUserVoucher=await this.checkUserVoucherMustExists(id, userId);
+    //         if(!checkUserVoucher){
+    //             this.logger.warn('user-voucher.create.error', {
+    //                 module: 'user-voucher',
+    //                 action: 'create',
+    //                 reason: 'User voucher not found',
+    //                 id,
+    //             });
 
-            if(!checkUserVoucher){
-                this.logger.warn('user-voucher.create.error', {
-                    module: 'user-voucher',
-                    action: 'create',
-                    reason: 'User voucher not found',
-                    id,
-                });
+    //             return responseValue(false,HttpStatus.NOT_FOUND,"User Voucher Not Found");
+    //         }
 
-                return responseValue(false,HttpStatus.NOT_FOUND,"User Voucher Not Found");
-            }
+    //         const userVoucherData=this.userVoucherResponse(checkUserVoucher);
 
-            const userVoucherData=this.userVoucherResponse(checkUserVoucher);
+    //         this.logger.log('user-voucher.get-detail.success', {
+    //             module: 'user-voucher',
+    //             action: 'get-detail',
+    //             id,
+    //         });
 
-            this.logger.log('user-voucher.get-detail.success', {
-                module: 'user-voucher',
-                action: 'get-detail',
-                id,
-            });
+    //         return responseValueWithData(true, HttpStatus.OK, "Successfully Get Data User Voucher", userVoucherData);
+    //     }catch(error){
+    //         this.logger.error('user-voucher.get.error', {
+    //             module: 'user-voucher',
+    //             action: 'get',
+    //             error: error.message,
+    //             stack: error.stack,
+    //         });
 
-            return responseValueWithData(true, HttpStatus.OK, "Successfully Get Data User Voucher", userVoucherData);
-        }catch(error){
-            this.logger.error('user-voucher.get.error', {
-                module: 'user-voucher',
-                action: 'get',
-                error: error.message,
-                stack: error.stack,
-            });
-
-            return responseValue(false, HttpStatus.INTERNAL_SERVER_ERROR, error.message ?? 'Internal server error.');
-        }
-    }
+    //         return responseValue(false, HttpStatus.INTERNAL_SERVER_ERROR, error.message ?? 'Internal server error.');
+    //     }
+    // }
 
     async update(
         request:UpdateUserVoucherRequest
