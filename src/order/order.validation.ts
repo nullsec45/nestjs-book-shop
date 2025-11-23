@@ -34,6 +34,18 @@ export class OrderItemValidation {
         qty:z.number(),
     });
 
+
+    static readonly CREATE_BULK = z.object({
+        shipping_address_id: z.string().optional().nullable(),
+        items: z.array(
+        z.object({
+            book_id: z.string(),
+            qty: z.number().min(1),
+        })
+        ).min(1),
+    });
+
+
     static readonly UPDATE = z.object({
         id:z.string(),
         book_id:z.string(),
