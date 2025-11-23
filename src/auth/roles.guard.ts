@@ -2,7 +2,8 @@ import {
     CanActivate,
     ExecutionContext,
     Injectable,
-    ForbiddenException
+    ForbiddenException,
+    HttpStatus
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { UserService } from '@/user/user.service';
@@ -18,7 +19,7 @@ export class RolesGuard implements CanActivate{
         private logger:LogService,
     ){}
 
-    async canActivate(ctx: ExecutionContext): Promise<boolean> {
+    async canActivate(ctx: ExecutionContext) : Promise<boolean> {
         const required=this.reflector.getAllAndOverride<Role[]>(ROLES_KEY,[
             ctx.getHandler(),
             ctx.getClass(),
@@ -35,6 +36,7 @@ export class RolesGuard implements CanActivate{
         const userRole=await this.userService.getRoleByUserId(user.id);
 
         req.user = {
+            id:user.id,
             role: userRole as Role,
         };
 
@@ -47,10 +49,10 @@ export class RolesGuard implements CanActivate{
                 reason: 'Insufficient role',
                 user_id:req.user.id,
             },'warn');
-        }
 
+            throw new ForbiddenException('Forbidden Access : unable to access this endpoint.');
+        }
         
-        if(!allowed) throw new ForbiddenException('Insufficient role');
         return true;
     }
 }
