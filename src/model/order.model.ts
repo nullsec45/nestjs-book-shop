@@ -4,6 +4,13 @@ export class CreateOrderItemRequest{
     qty:number;
 }
 
+export class CreateOrderItemBulkRequest {
+  shipping_address_id: string;
+  voucer?:string;
+  items: CreateOrderItemRequest[];
+}
+
+
 export class UpdateOrderItemRequest{
     id:string;
     shipping_address_id:string;
