@@ -141,7 +141,7 @@ export class BookService  {
                 }
             });
 
-            this.logger.error('book.create.success', {
+            this.logger.log('book.create.success', {
                 module: 'book',
                 action: 'create',
                 book_id: book.id,
@@ -283,6 +283,13 @@ export class BookService  {
             const coverMedia=await this.mediaService.findOneByParent(book.id, 'book_cover');
 
             const bookData:BookResponse=this.bookResponse(book, coverMedia as MediaResponse | undefined);
+            
+            this.logger.log('book.get.success', {
+                module: 'book',
+                action: 'get',
+                param,
+            });
+
             return responseValueWithData(true, HttpStatus.OK, 'Successfully Get Data', bookData);
         }catch(error){
             return responseValue(false, HttpStatus.INTERNAL_SERVER_ERROR, error.message ?? 'Internal server error.');
@@ -321,6 +328,11 @@ export class BookService  {
 
             const bookData=this.bookResponse(book);
 
+            this.logger.error('book.update.success', {
+                module: 'book',
+                action: 'update',
+            });
+
             return responseValueWithData(true, HttpStatus.OK, 'Successfully Updated Data', bookData);
         }catch(error){
             if (error instanceof ZodError) {
@@ -357,6 +369,11 @@ export class BookService  {
                 data:{
                     deleted_at:new Date()
                 }
+            });
+
+            this.logger.log('book.remove.success', {
+                module: 'book',
+                action: 'remove',
             });
 
             return responseValue(true, HttpStatus.OK, 'Successfully Deleted Data');
