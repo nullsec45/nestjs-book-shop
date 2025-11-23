@@ -100,7 +100,7 @@ export class VoucherService {
                 }
             });
 
-            this.logger.error('voucher.create.success', {
+            this.logger.log('voucher.create.success', {
                 module: 'voucher',
                 action: 'create',
                 payload:{
@@ -240,7 +240,7 @@ export class VoucherService {
             const voucherData=this.voucherResponse(voucher);
 
             this.logger.log('voucher.get.success', {
-                module: 'book',
+                module: 'voucher',
                 action: 'get',
                 id,
             });
@@ -288,8 +288,8 @@ export class VoucherService {
                 }
             });
 
-            this.logger.error('book.update.success', {
-                module: 'book',
+            this.logger.log('voucher.update.success', {
+                module: 'voucher',
                 action: 'update',
             });
 
@@ -347,6 +347,12 @@ export class VoucherService {
                 data:{
                     deleted_at:new Date()
                 }
+            });
+
+
+            this.logger.log('voucher.remove.success', {
+                module: 'voucher',
+                action: 'remove',
             });
 
             return responseValue(true, HttpStatus.OK, 'Successfully Deleted Data');
